@@ -71,10 +71,11 @@
       try {
         const parsed = getRepoSlug(`${s.owner}/${s.repo}`);
         return { id:parsed.id, owner:parsed.owner, repo:parsed.repo, branch:clampStr(s.branch,160),
-          scanMode:s.scanMode === 'index' ? 'index':'all', pagesUrl:safeUrl(s.pagesUrl), customBaseUrl:safeBaseUrl(s.customBaseUrl),
+          scanMode:['apps','all','index'].includes(s.scanMode) ? s.scanMode : 'apps', pagesUrl:safeUrl(s.pagesUrl), customBaseUrl:safeBaseUrl(s.customBaseUrl),
           pagesPath:s.pagesPath === '/docs' ? '/docs' : '/', pagesType:clampStr(s.pagesType,30),
           homepage:safeUrl(s.homepage), repoUrl:safeUrl(s.repoUrl) || `https://github.com/${parsed.owner}/${parsed.repo}`,
           lastScanned:clampStr(s.lastScanned,60), truncated:!!s.truncated, error:clampStr(s.error,350),
+          htmlCount:Number.isFinite(s.htmlCount) ? s.htmlCount : 0, excludedCount:Number.isFinite(s.excludedCount) ? s.excludedCount : 0, limited:!!s.limited,
         };
       } catch { return null; }
     }).filter(Boolean) : [];
@@ -89,12 +90,22 @@
     if (input.overrides && typeof input.overrides === 'object' && !Array.isArray(input.overrides)) {
       for (const [id,o] of Object.entries(input.overrides).slice(0,3000)) {
         if (!id.startsWith('github:') || !o || typeof o !== 'object') continue;
-        base.overrides[id] = {
-          title:clampStr(o.title,100), description:clampStr(o.description,300), category:clampStr(o.category,60),
-          emoji:clampStr(o.emoji,8), customUrl:safeUrl(o.customUrl), tags:clampStr(o.tags,220),
-          status:STAGES.includes(o.status) ? o.status : '', favorite:!!o.favorite, hidden:!!o.hidden,
-          order:Number.isFinite(o.order) ? o.order:null, lastOpened:clampStr(o.lastOpened,50),
+        // Preserve absent fields. Otherwise an override containing only a
+        // favorite flag can erase the original description on JSON import.
+        const clean = {
+          favorite:!!o.favorite, hidden:!!o.hidden,
+          order:Number.isFinite(o.order) ? o.order:null,
+          lastOpened:clampStr(o.lastOpened,50),
         };
+        for (const field of ['title','description','category','emoji','tags']) {
+          if (Object.prototype.hasOwnProperty.call(o,field)) {
+            const max={title:100,description:300,category:60,emoji:8,tags:220}[field];
+            clean[field]=clampStr(o[field],max);
+          }
+        }
+        if (Object.prototype.hasOwnProperty.call(o,'customUrl')) clean.customUrl=safeUrl(o.customUrl);
+        if (STAGES.includes(o.status)) clean.status=o.status;
+        base.overrides[id]=clean;
       }
     }
     base.discovered = {};
@@ -127,7 +138,9 @@
   let githubToken = ''; // Never written to localStorage, backups, or GitHub config.
   let refreshBusy = false;
   let reorderMode = false;
+  let catalogLimit = 60;
   const scanning = new Set();
+  const scanPromises = new Map();
 
   function persist(userChange = true, rerender = true) {
     if (userChange) state.updatedAt = nowIso();
@@ -273,77 +286,119 @@
     persist(false,false);
   }
 
-  function htmlPagesFromTree(tree, source, pages, repoMeta) {
-    const html = (tree.tree || []).filter(f=> f.type==='blob' && /\.html?$/i.test(f.path) &&
-      !/(^|\/)(node_modules|\.github|\.next|vendor|coverage|__tests__|\.venv)(\/|$)/i.test(f.path) &&
-      (source.scanMode==='all' || /(^|\/)index\.html?$/i.test(f.path)));
-    const chosen = html.slice(0,500);
+  const SUPPORT_PATH = /(^|\/)(node_modules|vendor|\.github|\.git|\.next|\.venv|coverage|__tests__|storybook-static|bower_components)(\/|$)/i;
+  const NON_APP_PATH = /(^|\/)(tests?|testing|testdata|fixtures?|examples?|samples?|docs|documentation|storybook|archives?|backups?)(\/|$)/i;
+  const NON_APP_FILE = /^(404|500|test|example|sample|demo|preview|template|readme|license)\.html?$/i;
+  const SCAN_LIMIT = 250;
+
+  function htmlPagesFromTree(tree, source, repoMeta) {
+    const files = (tree.tree || []).filter(f => f?.type === 'blob' && typeof f.path === 'string' &&
+      /\.html?$/i.test(f.path) && !SUPPORT_PATH.test(f.path));
+    const pathPrefix = source.pagesPath === '/docs' && source.pagesUrl ? 'docs/' : '';
+    const candidates = files.filter(f => {
+      if (source.scanMode === 'all') return true;
+      const path = f.path;
+      // Branch Pages from /docs cannot serve HTML elsewhere in the repository.
+      if (pathPrefix && !path.startsWith(pathPrefix)) return false;
+      const relative = pathPrefix ? path.slice(pathPrefix.length) : path;
+      if (source.scanMode === 'index') return /(^|\/)index\.html?$/i.test(relative);
+      return !NON_APP_PATH.test(relative) && !NON_APP_FILE.test(filename(relative));
+    });
+    // Stable ordering favors entry points over deep support files when a repo is large.
+    candidates.sort((a,b) => {
+      const aDepth = a.path.split('/').length, bDepth = b.path.split('/').length;
+      return aDepth-bDepth || a.path.localeCompare(b.path);
+    });
+    const chosen = candidates.slice(0, SCAN_LIMIT);
     const list = chosen.map(f => {
       const path = f.path;
-      const isRootIndex = path.toLowerCase()==='index.html';
+      const isRootIndex = path.toLowerCase() === 'index.html' || (pathPrefix && path.toLowerCase() === `${pathPrefix}index.html`);
       const parent = path.split('/').slice(0,-1).pop();
       const title = isRootIndex ? pretty(source.repo) : /index\.html?$/i.test(filename(path)) ? pretty(parent || source.repo) : pretty(filename(path));
       const sourceUrl = `https://github.com/${encodeURIComponent(source.owner)}/${encodeURIComponent(source.repo)}/blob/${encodePath(source.branch)}/${encodePath(path)}`;
       return { id:`github:${source.id}:${path}`, sourceId:source.id, path, title,
         category:guessCategory(`${title} ${path}`), emoji:pickEmoji(title,path),
         autoUrl:autoLaunchUrl(source,path), sourceUrl,
-        description: `Discovered in ${source.owner}/${source.repo}${isRootIndex ? '' : ' · '+path}`,
+        description: path,
       };
     });
-    // Track repositories that don't contain static HTML (e.g. desktop apps).
+    // Keep repositories with no matching app pages accessible as shortcuts.
     if (!list.length) list.push({id:`github:${source.id}:__repo__`,sourceId:source.id,path:'__repo__',title:pretty(source.repo),
       category:'Development',emoji:'💻',autoUrl:safeUrl(repoMeta.html_url),sourceUrl:safeUrl(repoMeta.html_url),
-      description:'Repository project — customize its launch link if it has a deployed app.'});
-    return {list,htmlCount:html.length};
+      description:'GitHub repository'});
+    return {list,htmlCount:files.length,excludedCount:files.length-candidates.length,
+      limited:candidates.length>SCAN_LIMIT};
   }
 
   async function githubJSON(path, options={}) {
     const headers = {Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28',...(options.headers||{})};
     if (githubToken) headers.Authorization = `Bearer ${githubToken}`;
-    const response = await fetch(`https://api.github.com${path}`,{...options,headers});
-    let data;
-    try { data = await response.json(); } catch { data = {}; }
-    if (!response.ok) {
-      let message = clampStr(data.message || `GitHub returned HTTP ${response.status}`, 220);
-      if (response.status===404) message += '. Check the repository name and, for private repositories, token permissions.';
-      else if (response.status===403 && response.headers.get('x-ratelimit-remaining') === '0') message = 'GitHub API rate limit reached. Wait for the limit to reset or use a GitHub token.';
-      else if (response.status===401) message = 'GitHub rejected the token. Check that it is valid and has the necessary repository permissions.';
-      throw new Error(message);
-    }
-    return data;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 18000);
+    try {
+      const response = await fetch(`https://api.github.com${path}`,{...options,headers,signal:controller.signal});
+      let data;
+      try { data = await response.json(); } catch { data = {}; }
+      if (!response.ok) {
+        let message = clampStr(data.message || `GitHub returned HTTP ${response.status}`, 220);
+        if (response.status===404) message += '. Check the repository URL and permissions for private repositories.';
+        else if (response.status===403 && response.headers.get('x-ratelimit-remaining') === '0') message = 'GitHub API rate limit reached. Add a session token or try again later.';
+        else if (response.status===401) message = 'GitHub rejected the token. Check that it is valid and has access to this repository.';
+        else if (response.status===409) message = 'GitHub could not read the file tree. The repository may be empty.';
+        throw new Error(message);
+      }
+      return data;
+    } catch (e) {
+      if (e.name === 'AbortError') throw new Error('GitHub did not respond within 18 seconds. Try scanning again.');
+      if (e instanceof TypeError) throw new Error('Could not reach GitHub. Check your connection and browser settings.');
+      throw e;
+    } finally { clearTimeout(timer); }
   }
 
-  async function scanRepository(owner, repo, mode='all', options={}) {
+  function scanRepository(owner, repo, mode='apps', options={}) {
     const id = slugKey(owner,repo);
-    if (scanning.has(id)) return;
-    scanning.add(id);
-    render();
-    try {
-      const metadata = await githubJSON(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`);
-      const branch = metadata.default_branch;
-      let pages = null;
-      try { pages = await githubJSON(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pages`); }
-      catch { /* Pages may be disabled or its configuration inaccessible to the token. */ }
-      const tree = await githubJSON(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/trees/${encodeURIComponent(branch)}?recursive=1`);
-      if (!Array.isArray(tree.tree)) throw new Error('GitHub did not return a repository file tree.');
-      const existingSource = state.sources.find(s=>s.id===id);
-      const source = {id, owner:metadata.owner?.login || owner, repo:metadata.name || repo,
-        branch, scanMode:mode, pagesUrl:safeUrl(pages?.html_url),
-        customBaseUrl: options.customBaseUrl ?? existingSource?.customBaseUrl ?? '',
-        pagesPath:pages?.source?.path === '/docs' ? '/docs' : '/', pagesType:pages?.build_type || '',
-        homepage:safeUrl(metadata.homepage), repoUrl:safeUrl(metadata.html_url),
-        lastScanned:nowIso(), truncated:!!tree.truncated, error:''};
-      const {list,htmlCount} = htmlPagesFromTree(tree, source, pages, metadata);
-      const index = state.sources.findIndex(s=>s.id===id);
-      if (index < 0) state.sources.push(source); else state.sources[index] = source;
-      state.discovered[id] = list;
-      persist(index < 0, false);
-      return {count:list.length,htmlCount,truncated:!!tree.truncated};
-    } catch (e) {
-      const old = state.sources.find(s => s.id===id);
-      if (old) { old.error = clampStr(e.message,350); persist(false,false); }
-      throw e;
-    } finally { scanning.delete(id); render(); }
+    if (scanPromises.has(id)) return scanPromises.get(id);
+    const task = (async () => {
+      scanning.add(id);
+      render();
+      try {
+        const metadata = await githubJSON(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`);
+        const branch = metadata.default_branch;
+        if (!branch || typeof branch !== 'string') throw new Error('GitHub did not identify a default branch.');
+        let pages = null;
+        try { pages = await githubJSON(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pages`); }
+        catch { /* Pages may be disabled, private, or inaccessible. */ }
+        const tree = await githubJSON(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/trees/${encodeURIComponent(branch)}?recursive=1`);
+        if (!Array.isArray(tree.tree)) throw new Error('GitHub did not return a file list for this repository.');
+        const existingSource = state.sources.find(s=>s.id===id);
+        const source = {id, owner:metadata.owner?.login || owner, repo:metadata.name || repo,
+          branch, scanMode:mode, pagesUrl:safeUrl(pages?.html_url),
+          customBaseUrl: options.customBaseUrl ?? existingSource?.customBaseUrl ?? '',
+          pagesPath:pages?.source?.path === '/docs' ? '/docs' : '/', pagesType:pages?.build_type || '',
+          homepage:safeUrl(metadata.homepage), repoUrl:safeUrl(metadata.html_url) || `https://github.com/${owner}/${repo}`,
+          lastScanned:nowIso(), truncated:!!tree.truncated, error:''};
+        const {list,htmlCount,excludedCount,limited} = htmlPagesFromTree(tree, source, metadata);
+        source.htmlCount=htmlCount;
+        source.excludedCount=excludedCount;
+        source.limited=limited;
+        // GitHub may return only part of a very large file tree. Do not delete
+        // previously discovered app cards merely because this response is incomplete.
+        const oldList = state.discovered[id] || [];
+        const resultList = tree.truncated ? [...new Map([...oldList,...list].map(a=>[a.id,a])).values()] : list;
+        const index = state.sources.findIndex(s=>s.id===id);
+        if (index < 0) state.sources.push(source); else state.sources[index] = source;
+        state.discovered[id] = resultList.slice(0,500);
+        persist(true, false);
+        return {count:state.discovered[id].length,htmlCount,excludedCount,limited,truncated:!!tree.truncated};
+      } catch (e) {
+        const old = state.sources.find(s => s.id===id);
+        if (old) { old.error = clampStr(e.message,350); persist(false,false); }
+        throw e;
+      } finally { scanning.delete(id); render(); }
+    })();
+    const settled = task.finally(() => scanPromises.delete(id));
+    scanPromises.set(id,settled);
+    return settled;
   }
 
   async function refreshSources() {
@@ -359,8 +414,8 @@
         catch(e) { bad++; console.warn('Scan failed',s.repo,e); }
       }
     };
-    await Promise.all(Array.from({length:Math.min(3,queue.length)},worker));
-    refreshBusy = false; render();
+    try { await Promise.all(Array.from({length:Math.min(2,queue.length)},worker)); }
+    finally { refreshBusy = false; render(); }
     notify(`${formatCount(good,'repository')} refreshed${bad ? `; ${formatCount(bad,'repository')} failed. Check Sources for details` : ''}.`,bad?'error':'success');
   }
 
@@ -471,7 +526,7 @@
         </div>
       </div>
       <h3>${esc(app.title)}</h3>
-      <p class="card-description">${esc(app.description || 'Your project, ready to organize.')}</p>
+      <p class="card-description">${esc(app.description || app.path || '')}</p>
       <div class="card-labels"><span class="pill">${esc(app.category || 'Other')}</span><span class="pill ${stageCls}">${esc(app.status)}</span>${isSuggested?'<span class="pill pill-suggested" title="Suggested from GitHub naming conventions; publishing has not been verified.">Suggested link</span>':''}${app.launchUrl?'':'<span class="pill pill-no-link">Needs launch URL</span>'}</div>
       <div class="card-footer"><span class="card-source" title="${esc(app.sourceLabel)}">${app.kind==='github'?'◈ ': '✳ '}${esc(app.sourceLabel)}</span>${link}</div>
       ${allowReorder?`<div class="card-order"><button class="btn btn-small" type="button" data-action="move-up" data-id="${esc(app.id)}" aria-label="Move ${esc(app.title)} earlier">${icon('up')} Earlier</button><button class="btn btn-small" type="button" data-action="move-down" data-id="${esc(app.id)}" aria-label="Move ${esc(app.title)} later">${icon('down')} Later</button></div>`:''}
@@ -483,21 +538,12 @@
   }
   function emptyHTML(kind) {
     const config={
-      new:{title:'Your apps start here',text:'Connect a GitHub repository to find your HTML projects, or add any app manually. Customize everything as your workspace grows.',icon:'apps'},
-      favorites:{title:'No favorites yet',text:'Use the star on any app to keep your go-to projects close at hand.',icon:'star'},
-      search:{title:'No matching apps',text:'Try a different search or category, or add something new to the dashboard.',icon:'search'},
-      sources:{title:'Connect your first repository',text:'Point App Hub to a GitHub repository. It will find HTML pages and help you launch the deployed ones.',icon:'git'},
+      new:{title:'No apps added',text:'Add a GitHub repository or enter an app URL manually.',icon:'apps'},
+      favorites:{title:'No favorites',text:'Use the star on an app card to add it here.',icon:'star'},
+      search:{title:'No matches',text:'Change the search or category.',icon:'search'},
+      sources:{title:'No repositories',text:'Add a repository to scan for HTML files.',icon:'git'},
     }[kind];
     return `<div class="empty-state"><div class="empty-graphic">${icon(config.icon)}</div><h2>${config.title}</h2><p>${config.text}</p>${['new','sources'].includes(kind)?'<div class="empty-actions"><button class="btn btn-primary" data-action="add-repo">'+icon('git')+' Connect GitHub</button><button class="btn" data-action="add-app">'+icon('plus')+' Add manually</button></div>':''}</div>`;
-  }
-  function heroHTML() {
-    const connected=state.sources.length>0;
-    return `<section class="hero" aria-labelledby="hero-heading"><div class="hero-content"><div class="hero-topline">✦ &nbsp; ALL YOUR IDEAS. ONE PLACE.</div>
-      <h2 id="hero-heading">Build things. Keep them together.</h2>
-      <p>From quick experiments to finished tools, your dashboard brings your projects together—without hunting through tabs or repositories.</p>
-      <div class="hero-buttons"><button type="button" class="btn btn-primary" data-action="${connected?'refresh-all':'add-repo'}">${icon(connected?'refresh':'git')} ${connected?'Scan GitHub':'Connect GitHub'}</button><button type="button" class="btn btn-hero-outline" data-action="add-app">${icon('plus')} Add an app</button></div></div>
-      <div class="hero-visual" aria-hidden="true"><div class="hero-widget back"></div><div class="hero-widget front"><div class="hero-widget-head"><span></span><span></span><span></span></div><div class="hero-widget-grid"><span>📊</span><span>🧪</span><span>🧩</span><span>🖼️</span><span>🛠️</span><span>🚀</span></div></div></div>
-    </section>`;
   }
   function statsHTML() {
     const apps=visibleApps(), fav=apps.filter(a=>a.favorite).length;
@@ -509,12 +555,12 @@
   }
   function renderOverview() {
     const apps=visibleApps(), favorites=sortApps(apps.filter(a=>a.favorite));
-    const recents=sortApps(apps).slice(0,8);
-    return `${heroHTML()}${statsHTML()}
-      ${favorites.length?`<section class="section" aria-labelledby="fave-section"><div class="section-heading"><div><h2 id="fave-section">Your favorites <span aria-hidden="true">✦</span></h2><p>Quick access to your most-used apps.</p></div><button type="button" class="btn btn-link" data-action="navigate" data-page="favorites">See favorites ${icon('arrow')}</button></div>${cardsHTML(favorites.slice(0,4))}</section>`:''}
-      <section class="section" aria-labelledby="all-section"><div class="section-heading"><div><h2 id="all-section">${apps.length?'Explore your apps':'Get started'}</h2><p>${apps.length?'Your workspace, organized and ready.':'Set up your launchpad in a couple of clicks.'}</p></div>${apps.length?`<button type="button" class="btn btn-link" data-action="navigate" data-page="apps">View all apps ${icon('arrow')}</button>`:''}</div>
+    const recents=sortApps(apps).slice(0,12);
+    return `${statsHTML()}
+      ${favorites.length?`<section class="section" aria-labelledby="fave-section"><div class="section-heading"><div><h2 id="fave-section">Favorites</h2></div><button type="button" class="btn btn-link" data-action="navigate" data-page="favorites">View all ${icon('arrow')}</button></div>${cardsHTML(favorites.slice(0,4))}</section>`:''}
+      <section class="section" aria-labelledby="all-section"><div class="section-heading"><div><h2 id="all-section">${apps.length?'Apps':'Get started'}</h2><p>${apps.length?`${formatCount(apps.length,'app')} available`:'Connect a repository or add a web link.'}</p></div>${apps.length?`<button type="button" class="btn btn-link" data-action="navigate" data-page="apps">All apps ${icon('arrow')}</button>`:''}</div>
       ${apps.length?cardsHTML(recents):emptyHTML('new')}</section>
-      ${state.sources.length?`<section class="section"><div class="section-heading"><div><h2>Connected sources</h2><p>GitHub repositories powering your dashboard.</p></div><button class="btn btn-link" data-action="navigate" data-page="sources">Manage sources ${icon('arrow')}</button></div><div class="source-summary-strip">${state.sources.slice(0,4).map(s=>`<span class="source-mini">${icon('git')} ${esc(s.owner+'/'+s.repo)}</span>`).join('')}</div></section>`:''}`;
+      ${state.sources.length?`<section class="section"><div class="section-heading"><div><h2>Repositories</h2></div><button class="btn btn-link" data-action="navigate" data-page="sources">Manage ${icon('arrow')}</button></div><div class="source-summary-strip">${state.sources.map(s=>`<span class="source-mini">${icon('git')} ${esc(s.owner+'/'+s.repo)}</span>`).join('')}</div></section>`:''}`;
   }
   function categoriesHTML(mode) {
     const all=visibleApps().filter(a=>mode==='favorites'?a.favorite:true);
@@ -524,7 +570,9 @@
   }
   function resultsHTML(mode) {
     const list=filteredApps(mode), total=visibleApps().filter(a=>mode==='favorites'?a.favorite:true).length;
-    return list.length?cardsHTML(list,reorderMode&&mode==='apps'&&state.sort==='custom'):(total===0?emptyHTML(mode==='favorites'?'favorites':'new'):emptyHTML('search'));
+    if (!list.length) return total===0 ? emptyHTML(mode==='favorites'?'favorites':'new') : emptyHTML('search');
+    const shown=list.slice(0,catalogLimit);
+    return cardsHTML(shown,reorderMode&&mode==='apps'&&state.sort==='custom') + (shown.length < list.length ? `<div class="load-more"><p>${formatCount(shown.length,'app')} shown of ${list.length}</p><button class="btn" type="button" data-action="show-more">Show 60 more</button></div>` : '');
   }
   function renderCatalog(mode) {
     const count=filteredApps(mode).length;
@@ -541,12 +589,14 @@
     const count=list.length;
     const busy=scanning.has(s.id);
     const info=repoBaseInfo(s);
-    const status={detected:'Pages detected',custom:'Custom base',shared:'Shared base',suggested:'Suggested base'}[info.type];
+    const status={detected:'Pages detected',custom:'Custom base',shared:'Shared base',suggested:'Unverified base'}[info.type];
+    const modeName={apps:'App pages',all:'All HTML',index:'Index pages'}[s.scanMode] || 'App pages';
     const sample=list.find(d=>d.path!=='__repo__' && autoLaunchUrl(s,d.path));
     const sampleUrl=sample ? autoLaunchUrl(s,sample.path) : '';
-    return `<article class="source-card"><div class="source-head"><span class="source-logo">${icon('git')}</span><div><h3>${esc(s.owner+'/'+s.repo)}</h3><p>${esc(s.branch||'default branch')} · ${esc(s.scanMode==='index'?'Index pages':'All HTML pages')}</p></div></div>
-      <div class="source-meta"><span class="pill">${formatCount(count,'app')}</span><span class="pill ${info.type==='detected'?'pill-stage':'pill-progress'}">${esc(status)}</span>${s.truncated?'<span class="pill pill-no-link">Large tree: partial scan</span>':''}</div>
+    return `<article class="source-card"><div class="source-head"><span class="source-logo">${icon('git')}</span><div><h3>${esc(s.owner+'/'+s.repo)}</h3><p>${esc(s.branch||'default branch')} · ${esc(modeName)}</p></div></div>
+      <div class="source-meta"><span class="pill">${formatCount(count,'app')}</span><span class="pill ${info.type==='detected'?'pill-stage':'pill-progress'}">${esc(status)}</span>${s.truncated?'<span class="pill pill-no-link">Partial GitHub scan</span>':''}${s.limited?'<span class="pill pill-progress">First 250 files</span>':''}</div>
       <div class="source-details"><p><strong>Last scan:</strong> ${esc(shortDate(s.lastScanned))}${busy?' · Scanning…':''}</p>
+      ${s.excludedCount?`<p><strong>Filtered out:</strong> ${s.excludedCount} supporting HTML files</p>`:''}
       <p><strong>URL base:</strong> <span class="source-url">${esc(info.base)}</span></p>
       ${sampleUrl?`<p><strong>Example:</strong> <a class="source-url" href="${esc(sampleUrl)}" target="_blank" rel="noopener noreferrer">${esc(sampleUrl)}</a></p>`:''}
       ${info.type==='suggested'?'<p class="small-note">Suggested URLs are not verified. GitHub Pages must be enabled for these links to work.</p>':''}
@@ -555,21 +605,22 @@
       <input id="sourceBase-${esc(s.id.replace(/[^a-z0-9-]/gi,'-'))}" class="source-base-input" type="url" value="${esc(s.customBaseUrl||'')}" placeholder="${esc(info.base)}" spellcheck="false" aria-describedby="baseHint-${esc(s.id.replace(/[^a-z0-9-]/gi,'-'))}">
       <span class="field-hint" id="baseHint-${esc(s.id.replace(/[^a-z0-9-]/gi,'-'))}">Optional. Enter the published folder URL. Leave blank for automatic links.</span>
       <button class="btn btn-small" type="button" data-action="save-source-base" data-id="${esc(s.id)}">${icon('check')} Save base URL</button></div>
+      <div class="source-scan-control field"><label for="scan-${esc(s.id.replace(/[^a-z0-9-]/gi,'-'))}">Files to include</label>
+      <select class="source-scan-select" id="scan-${esc(s.id.replace(/[^a-z0-9-]/gi,'-'))}"><option value="apps" ${s.scanMode==='apps'?'selected':''}>App pages (recommended)</option><option value="all" ${s.scanMode==='all'?'selected':''}>All HTML files</option><option value="index" ${s.scanMode==='index'?'selected':''}>Only index.html</option></select></div>
       <div class="source-actions"><button class="btn btn-small" type="button" data-action="refresh-source" data-id="${esc(s.id)}" ${busy?'disabled':''}>${busy?'<span class="loading-spinner" aria-hidden="true"></span>':icon('refresh')} ${busy?'Scanning':'Scan now'}</button>
-      <button class="btn btn-small" type="button" data-action="switch-scan" data-id="${esc(s.id)}" title="Change which HTML files are discovered">${s.scanMode==='all'?'Index only':'All HTML'}</button>
       <a class="btn btn-small" href="${esc(s.repoUrl)}" target="_blank" rel="noopener noreferrer" aria-label="Open ${esc(s.repo)} on GitHub">${icon('external')} GitHub</a>
       <button class="btn btn-small btn-danger-quiet" type="button" data-action="remove-source" data-id="${esc(s.id)}" aria-label="Remove ${esc(s.owner+'/'+s.repo)}">${icon('trash')}</button></div>
     </article>`;
   }
   function renderSources() {
-    return `<section class="base-panel" aria-labelledby="pagesBaseHeading"><div><div class="eyebrow">AUTOMATIC APP LINKS</div><h2 id="pagesBaseHeading">Set the web address once.</h2>
-      <p>App Hub combines the website base with each discovered HTML file's path. You can set one shared base, or let it detect GitHub Pages URLs automatically.</p></div>
+    return `<section class="base-panel" aria-labelledby="pagesBaseHeading"><div><h2 id="pagesBaseHeading">Base URL for app links</h2>
+      <p>Set a shared website root, or let GitHub Pages determine the URL for each repository.</p></div>
       <div class="base-panel-controls field"><label for="pagesRoot">Shared GitHub Pages website root</label>
         <input id="pagesRoot" type="url" value="${esc(state.pagesRoot)}" placeholder="https://YOUR-USERNAME.github.io/" autocomplete="url" spellcheck="false" aria-describedby="pagesRootHint">
         <span class="field-hint" id="pagesRootHint">Optional. Enter the host root, not a file URL. We add the repository and HTML path. Leave blank to infer each owner's GitHub Pages address.</span>
         <button class="btn btn-primary" type="button" data-action="save-pages-root">${icon('check')} Save shared base</button>
       </div><div class="base-example"><strong>Example</strong><div><code>https://username.github.io/</code> + <code>my-apps/tools/diagram.html</code></div><div class="base-example-result">= <code>https://username.github.io/my-apps/tools/diagram.html</code></div></div></section>
-      <div class="callout">${icon('info')} <strong>Automatic link order:</strong> A repository's custom base takes priority, then your shared base, then GitHub's detected Pages address, then an inferred <code>owner.github.io</code> address. Inferred links may not work until GitHub Pages is published.</div>
+      <div class="callout">${icon('info')} <strong>Link priority:</strong> Repository base → shared base → detected Pages URL → inferred URL. Inferred URLs are not verified.</div>
       ${state.sources.length?`<div class="section-heading"><div><h2>Connected repositories</h2><p>${formatCount(state.sources.length,'source')} · Edit a repository's base URL below without rescanning.</p></div><button class="btn btn-small" data-action="refresh-all" ${refreshBusy?'disabled':''}>${icon('refresh')} ${refreshBusy?'Refreshing…':'Refresh all'}</button></div>
       <div class="source-grid">${state.sources.map(sourceCard).join('')}</div>`:emptyHTML('sources')}
       <section class="section" style="margin-top:28px"><div class="info-panel"><h2>Find repositories by GitHub username</h2><p class="muted">Browse your public repositories, even when you don't remember their exact URLs.</p><button class="btn" data-action="discover">${icon('search')} Browse repositories</button></div></section>`;
@@ -577,7 +628,7 @@
   function renderSettings() {
     const hidden=getAllApps().filter(a=>a.hidden);
     return `<div class="settings-layout">
-      <section class="settings-panel" aria-labelledby="appearanceHeading"><h2 id="appearanceHeading">Make it your own</h2><p>Personalize the title, theme, and appearance of your hub.</p>
+      <section class="settings-panel" aria-labelledby="appearanceHeading"><h2 id="appearanceHeading">Appearance</h2><p>Dashboard title, colors, and preferences.</p>
         <div class="settings-stack"><div class="field"><label for="workspaceName">Workspace name</label><input id="workspaceName" maxlength="70" value="${esc(state.name)}" placeholder="Name your workspace"></div>
           <button class="btn btn-primary" data-action="save-name" style="justify-self:start">${icon('check')} Save name</button>
           <div class="field"><span class="field-label">Appearance</span><div class="theme-options" role="group" aria-label="Choose color theme"><button class="theme-swatch" type="button" aria-pressed="${state.theme==='light'}" data-action="theme" data-theme="light">☀ Light</button><button class="theme-swatch" type="button" aria-pressed="${state.theme==='dark'}" data-action="theme" data-theme="dark">☾ Dark</button></div></div>
@@ -597,7 +648,7 @@
         <div class="field"><label for="syncFile">Configuration file path</label><input id="syncFile" value="${esc(state.sync.file)}" maxlength="180" spellcheck="false"><span class="field-hint">Recommended: app-hub.json at the repository root.</span></div></div>
         <div class="sync-buttons"><button class="btn btn-primary" data-action="publish-cloud">${icon('upload')} Publish to GitHub</button><button class="btn" data-action="load-cloud">${icon('download')} Load from GitHub</button><button class="btn" data-action="load-published">${icon('cloud')} Load site config</button></div>
         <p class="small-note">Publishing writes a commit to the selected repository (Contents: read/write). When GitHub Pages is published from the repository root, other browsers can read the file automatically. It may take a little time for GitHub Pages to rebuild.</p>
-        <hr class="settings-divider"><h2>How the hub stays current</h2><p>Connected sources can be rescanned to discover new HTML files. Changes to titles, categories, URLs, and favorites are preserved when you rescan.</p>
+        <hr class="settings-divider"><h2>Repository scans</h2><p>Scanning is manual to avoid unexpected changes or excessive GitHub API requests. Saved app edits are kept when you rescan.</p>
         <button class="btn" data-action="refresh-all" ${refreshBusy?'disabled':''}>${icon('refresh')} ${refreshBusy?'Scanning…':'Refresh all GitHub apps'}</button>
         <p class="small-note">${state.updatedAt?'Local customization last changed '+esc(shortDate(state.updatedAt))+'.':'No saved changes yet.'} A fresh browser has no access to your private repositories unless you provide a token there.</p>
       </section>
@@ -610,14 +661,13 @@
     $('#navAppCount').textContent=String(apps.length);
     $('#sourceSummary').textContent=scanning.size?`Scanning ${formatCount(scanning.size,'source')}…` : `${formatCount(state.sources.length,'source')} connected`;
     const meta={
-      overview:{label:'Overview',eyebrow:'YOUR DASHBOARD',title:'The home for everything you build.',desc:'One beautifully organized place for your apps, tools, and experiments.'},
-      apps:{label:'All apps',eyebrow:'YOUR APP LIBRARY',title:'Everything you build, in one place.',desc:'Search, organize, customize, and launch your work.'},
-      favorites:{label:'Favorites',eyebrow:'QUICK ACCESS',title:'The apps you reach for most.',desc:'Your starred projects, a click away.'},
-      sources:{label:'GitHub sources',eyebrow:'CONNECTED PROJECTS',title:'Your GitHub repositories.',desc:'Scan repositories for new apps and manage where they come from.'},
-      settings:{label:'Settings & sync',eyebrow:'MAKE IT YOURS',title:'Workspace settings.',desc:'Customize your hub and keep its configuration across computers.'},
+      overview:{label:'Overview',title:'Overview',desc:'Apps and connected repositories.'},
+      apps:{label:'All apps',title:'All apps',desc:'Search and edit app links.'},
+      favorites:{label:'Favorites',title:'Favorites',desc:'Starred apps.'},
+      sources:{label:'GitHub sources',title:'GitHub repositories',desc:'Scan files and configure link bases.'},
+      settings:{label:'Settings & sync',title:'Settings & sync',desc:'Local preferences and GitHub configuration sync.'},
     }[view];
     $('#breadcrumbCurrent').textContent=meta.label;
-    $('#pageEyebrow').textContent=meta.eyebrow;
     $('#pageTitle').textContent=meta.title;
     $('#pageDescription').textContent=meta.desc;
     $$('.nav-link').forEach(el=>{
@@ -631,7 +681,7 @@
   }
   function navigate(destination) {
     if (!['overview','apps','favorites','sources','settings'].includes(destination))return;
-    view=destination; category='All'; search=''; reorderMode=false;
+    view=destination; category='All'; search=''; reorderMode=false; catalogLimit=60;
     render();
     $('#main-content').focus({preventScroll:true});
     window.scrollTo({top:0,behavior:'instant'});
@@ -698,7 +748,7 @@
       const result=await scanRepository(parsed.owner,parsed.repo,mode,{customBaseUrl:customBaseUrl||undefined});
       closeDialog('repoDialog');
       navigate('sources');
-      notify(`Connected ${parsed.owner}/${parsed.repo}: ${formatCount(result.count,'project')} found.${result.truncated?' This repository is too large for a complete tree scan.':''}`);
+      notify(`Connected ${parsed.owner}/${parsed.repo}: ${formatCount(result.count,'app')} found.${result.truncated?' GitHub provided a partial file tree.':''}${result.limited?' Showing the first 250 matching files.':''}`);
     } catch(e) { message.textContent=e.message; }
     finally { button.disabled=false; }
   }
@@ -752,7 +802,7 @@
   }
   async function refreshOne(id) {
     const source=state.sources.find(s=>s.id===id);if(!source)return;
-    try {const result=await scanRepository(source.owner,source.repo,source.scanMode);notify(`${source.repo} scanned: ${formatCount(result.count,'app')} found.`);}
+    try {const result=await scanRepository(source.owner,source.repo,source.scanMode);notify(`${source.repo} scanned: ${formatCount(result.count,'app')} found${result.truncated?' (partial file tree)':''}.`);}
     catch(e){notify(`${source.repo}: ${e.message}`,'error');}
   }
   function removeSource(id) {
@@ -763,11 +813,12 @@
     Object.keys(state.overrides).forEach(key=>{if(key.startsWith(`github:${id}:`))delete state.overrides[key];});
     persist();notify(`${s.owner}/${s.repo} disconnected from your hub.`);
   }
-  async function switchScan(id) {
-    const s=state.sources.find(x=>x.id===id);if(!s)return;
-    const newMode=s.scanMode==='all'?'index':'all';
-    try {const result=await scanRepository(s.owner,s.repo,newMode);notify(`${s.repo}: now detecting ${newMode==='all'?'all HTML pages':'only index.html pages'} (${result.count} found).`);}
-    catch(e){notify(e.message,'error');}
+  async function applyScanMode(id, mode) {
+    const s=state.sources.find(x=>x.id===id); if(!s || !['apps','all','index'].includes(mode)) return;
+    if (scanning.has(id)) {notify('A scan is already running for this repository.','error');return;}
+    try {const result=await scanRepository(s.owner,s.repo,mode);
+      notify(`${s.repo}: ${formatCount(result.count,'app')} found${result.truncated?' (partial GitHub tree)':''}${result.limited?' (first 250 files)':''}.`);}
+    catch(e){notify(`${s.repo}: ${e.message}`,'error');}
   }
   async function handleDiscover(event) {
     event.preventDefault();
@@ -789,7 +840,7 @@
   async function addFromDiscovery(button) {
     let parsed;try{parsed=getRepoSlug(button.dataset.repo);}catch(e){notify(e.message,'error');return;}
     button.disabled=true;button.textContent='Scanning…';
-    try {const result=await scanRepository(parsed.owner,parsed.repo,'all');button.textContent='Connected';notify(`${parsed.repo} added (${formatCount(result.count,'app')}).`);}
+    try {const result=await scanRepository(parsed.owner,parsed.repo,'apps');button.textContent='Connected';notify(`${parsed.repo} added (${formatCount(result.count,'app')}).`);}
     catch(e){button.disabled=false;button.textContent='Try again';notify(`${parsed.repo}: ${e.message}`,'error');}
   }
   function savePagesRoot() {
@@ -841,13 +892,13 @@
       case 'toggle-favorite':{const app=getAppById(id);if(app)changeApp(id,{favorite:!app.favorite});break;}
       case 'open-app': markOpened(id);break;
       case 'refresh-all': await refreshSources();break;
-      case 'refresh-source':await refreshOne(id);break;
+      case 'refresh-source':{const source=state.sources.find(x=>x.id===id);const element=trigger.closest('.source-card')?.querySelector('.source-scan-select');await applyScanMode(id,element?.value||source?.scanMode||'apps');break;}
       case 'save-pages-root':savePagesRoot();break;
       case 'save-source-base':saveSourceBase(id,trigger);break;
       case 'use-auto-url':{const app=getAppById($('#appEditId').value);if(app){$('#appUrl').value=app.autoUrl||'';$('#appMessage').textContent='Using the generated link. Save the app to remove a previous override.';}break;}
       case 'remove-source':removeSource(id);break;
-      case 'switch-scan':await switchScan(id);break;
-      case 'category':category=trigger.dataset.category;render();break;
+      case 'show-more':catalogLimit+=60;render();break;
+      case 'category':category=trigger.dataset.category;catalogLimit=60;render();break;
       case 'layout':state.layout=trigger.dataset.layout;persist();break;
       case 'toggle-reorder':if(state.sort!=='custom'){state.sort='custom';}reorderMode=!reorderMode;persist();break;
       case 'move-up':moveApp(id,-1);break;
@@ -868,7 +919,7 @@
     }
   });
   document.addEventListener('input', event => {
-    if(event.target.id==='appSearch') {search=event.target.value;updateSearch();}
+    if(event.target.id==='appSearch') {search=event.target.value;catalogLimit=60;updateSearch();}
   });
   document.addEventListener('change', event => {
     if(event.target.id==='appSort'){state.sort=event.target.value;reorderMode=false;persist();}
@@ -903,18 +954,9 @@
   async function initialize() {
     inferHostingRepo();
     render();
+    // Never rescan stored repositories in the background. This prevents sudden
+    // dashboard changes, rate-limit surprises, and collisions with user edits.
     await loadPublishedConfig({auto:true});
-    // Automatic scans are deliberately limited to reduce API rate-limit usage.
-    const stale=state.sources.filter(s=>!s.lastScanned || Date.now()-(Date.parse(s.lastScanned)||0)>30*60*1000);
-    if(stale.length>0 && stale.length<=6) {
-      const work=async()=>{
-        for(const source of stale){
-          // Private repos require a user-entered session token. Keep cached apps on failure.
-          try{await scanRepository(source.owner,source.repo,source.scanMode);}catch(e){console.warn('Automatic scan skipped:',source.id,e.message);}
-        }
-      };
-      work();
-    }
   }
   initialize();
 })();
