@@ -1,3 +1,4 @@
+[hidden] { display: none !important; }
 :root {
   --accent: #b62a3b;
   --accent-text: #fff;
@@ -247,3 +248,25 @@ body.dark { --ink: #e8eaf4; --ink-secondary: #abb6cc; --muted: #96a4bc; --line: 
 .dark .field .field-label { color: #e6eaf4; }
 .dark .theme-swatch[aria-pressed="true"] { color: color-mix(in srgb,var(--accent) 35%, #fff); border-color: color-mix(in srgb,var(--accent) 35%, #fff); box-shadow: 0 0 0 1px color-mix(in srgb,var(--accent) 35%, #fff); }
 .dark .eyebrow, .dark .card-open, .dark .btn-link, .dark .layout-toggle button[aria-pressed="true"] { color: color-mix(in srgb,var(--accent) 30%, #fff); }
+
+/* Link building controls — shared host root and repository-level overrides. */
+.base-panel { display: grid; grid-template-columns: minmax(0,1fr) minmax(280px,1fr); gap: 14px 24px; padding: 23px 24px; margin: 0 0 23px; background: linear-gradient(115deg,#fff 10%,#fff7f8 100%); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); }
+.base-panel h2 { margin: 7px 0 9px; font-size: 21px; letter-spacing: -.03em; }
+.base-panel p { font-size: 12px; line-height: 1.7; color: var(--ink-secondary); max-width: 480px; }
+.base-panel-controls { justify-content: center; }
+.base-panel-controls .btn { align-self: flex-start; }
+.base-example { grid-column: 1/-1; padding: 13px 15px; border-radius: 10px; background: var(--surface-2); color: var(--ink-secondary); font-size: 11px; line-height: 1.75; overflow-wrap: anywhere; }
+.base-example strong { color: var(--ink); margin-right: 7px; }
+.base-example code { white-space: normal; word-break: break-word; color: var(--ink); font-size: 11px; }
+.base-example-result { margin-top: 2px; }
+.source-base-editor { border-top: 1px solid var(--line); padding-top: 13px; margin-top: 14px; }
+.source-base-editor .btn { align-self: flex-start; }
+.source-url { overflow-wrap: anywhere; word-break: break-word; }
+.source-card .small-note { margin: 8px 0 0; }
+.pill-suggested { color: #875523; background: #fff0db; }
+.dark .base-panel { background: linear-gradient(120deg,#242e41,#302835); }
+.dark .base-panel p { color: #acb7ca; }
+.dark .base-example { background: #1e293c; color: #b7c3d4; }
+.dark .pill-suggested { color: #f9c77d; background: #594021; }
+@media(max-width:840px) { .base-panel { grid-template-columns: 1fr; } .base-example { grid-column: 1; } }
+@media(max-width:600px) { .base-panel { padding: 19px; } }

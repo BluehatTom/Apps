@@ -1,6 +1,6 @@
 # Tom's App Hub
 
-A responsive, accessible personal landing page for all your web apps and coding projects. It reads GitHub repository file trees, discovers HTML apps, builds GitHub Pages launch links when possible, and lets you organize, edit, and sync your app catalog. There is **no backend and no external JavaScript dependency**.
+A responsive, accessible personal landing page for all your web apps and coding projects. It reads GitHub repository file trees, discovers HTML apps, automatically constructs complete GitHub Pages launch links, and lets you organize, edit, and sync your app catalog. There is **no backend and no external JavaScript dependency**.
 
 ## Start here
 
@@ -12,7 +12,7 @@ A responsive, accessible personal landing page for all your web apps and coding 
 2. Upload `index.html`, `styles.css`, `app.js`, and `.nojekyll` from this package to the repository root (not into a subfolder).
 3. Go to **Settings → Pages → Build and deployment**, select **Deploy from a branch**, and choose your default branch and **/(root)** folder. Save.
 4. When GitHub Pages has published, open `https://YOUR-USERNAME.github.io/toms-app-hub/` (or the URL GitHub provides).
-5. Click **Connect GitHub**, paste a repository URL such as `https://github.com/YOUR-USERNAME/my-apps`, and let it scan. Add as many sources as you like. Alternatively, use **GitHub sources → Browse repositories** to find a user's public repositories.
+5. Click **Connect GitHub**, paste a repository URL such as `https://github.com/YOUR-USERNAME/my-apps`, and let it scan. App Hub builds URLs for every discovered HTML file, even when it cannot read the repository's GitHub Pages settings. Alternatively, use **GitHub sources → Browse repositories** to find a user's public repositories.
 6. Use **Add an app** to create your own cards for desktop apps, external websites, or pages that were not discovered automatically.
 
 ## What you can customize
@@ -21,9 +21,31 @@ A responsive, accessible personal landing page for all your web apps and coding 
 - Favorites, hidden apps, custom ordering, search, and category filters.
 - Light/dark appearance, accent color, grid/list view, and workspace name.
 - Multiple GitHub sources; scan all HTML or index.html pages only.
+- Shared GitHub Pages website root, plus an optional override for each repository. Launch links change immediately without rescanning.
 - JSON backup/restore and publishing the configuration to GitHub for other browsers to load.
 
 Use the pencil icon on a card to edit it. The star icon adds it to favorites. Open **All apps → Rearrange** to move cards earlier or later; choose **My order** if necessary. To recover hidden cards, open **Settings & sync → Hidden apps**.
+
+## Automatic app links (new)
+
+For an HTML file discovered in GitHub, App Hub automatically adds the **web launch URL**, not just a link to the GitHub source file. It uses the same filename and folder structure as your repository. Example:
+
+| Part | Value |
+| --- | --- |
+| Shared website root | `https://YOUR-USERNAME.github.io/` |
+| GitHub repository | `my-apps` |
+| HTML file in that repo | `tools/diagram.html` |
+| Generated launch link | `https://YOUR-USERNAME.github.io/my-apps/tools/diagram.html` |
+
+### Three ways to set the base URL
+
+1. **Automatic (nothing to configure):** App Hub uses the URL reported by the GitHub Pages API. If that information is unavailable, it suggests `https://OWNER.github.io/REPOSITORY/` for project repositories, or `https://OWNER.github.io/` for `OWNER.github.io` repositories.
+2. **One shared base:** Open **GitHub sources**, enter your website host under **Shared GitHub Pages website root**, and click **Save shared base**. This overrides automatically detected links across sources unless a repository has its own override. Enter the root (like `https://YOUR-USERNAME.github.io/`), not an HTML filename. The hub adds the repository name and HTML path. For a single repository, a shared URL already ending in that repository name is also accepted and won't duplicate the name.
+3. **Per-repository override:** On **GitHub sources**, enter the full published directory (e.g. `https://custom.example.org/my-apps/`) on that repository's card, then click **Save base URL**. You can also enter this when first connecting the repository. This takes precedence over the shared base and GitHub Pages detection.
+
+All changes immediately update discovered app links **without a new scan**, and are retained through rescans, JSON backup, and GitHub configuration sync. You can still override an individual app URL in its editor. Click **Use generated URL** to restore its automatic link.
+
+**Important:** If GitHub Pages is not published, the suggested link will not work yet. App Hub labels such links *Suggested link* because it cannot establish that they resolve. The hub does not deploy HTML files. If your Pages site is published from `/docs`, the detected source folder is removed automatically from generated URLs. With GitHub Actions-based Pages deployments, file paths in the published artifact may not match the GitHub repository: set that repository's base URL when you know they align, or customize its app links individually.
 
 ## Save your dashboard across computers
 
@@ -52,7 +74,7 @@ Fine-grained tokens can be created in [GitHub personal access token settings](ht
 
 The hub reads GitHub's repository metadata, optional Pages metadata, and the selected branch's recursive file tree. It discovers `*.html` and `*.htm` files, including index pages inside folders. Standard third-party dependency folders are skipped. Choose **Index only** for repositories with lots of unrelated HTML documentation.
 
-When Pages is deployed from the branch root or `/docs`, the hub maps corresponding paths to published URLs. If Pages uses **GitHub Actions**, the published artifact may not have the same folder structure; only a root index URL can be inferred safely. In those cases, use the card editor to enter the correct launch URL. If a repository has no HTML, the hub creates a repository shortcut so you can track desktop and code-only projects too.
+When Pages is deployed from the branch root or `/docs`, the hub maps corresponding paths to published URLs. If Pages is not enabled, the hub still constructs a suggested URL from the conventional GitHub Pages hostname and labels it as unverified. If Pages uses **GitHub Actions**, the published artifact may not have the same folder structure; only a root index URL can be inferred safely unless you set a published base explicitly. In those cases, use the repository base field or card editor to specify the correct address. If a repository has no HTML, the hub creates a repository shortcut so you can track desktop and code-only projects too.
 
 GitHub's recursive tree API can be truncated for very large repositories. The hub displays a warning in this case and scans up to 500 HTML entries per source. Public API rate limits also apply; scan thoughtfully or supply a session token if needed.
 

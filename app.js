@@ -4,7 +4,7 @@
   const STORAGE_KEY = 'toms-app-hub:v1';
   const DEFAULT_CONFIG = () => ({
     version: 1, name: "Tom's App Hub", accent: '#b62a3b', theme: 'light', layout: 'grid',
-    sort: 'custom', sources: [], discovered: {}, manualApps: [], overrides: {},
+    sort: 'custom', pagesRoot: '', sources: [], discovered: {}, manualApps: [], overrides: {},
     sync: { repo: '', file: 'app-hub.json' }, updatedAt: '',
   });
   const PALETTE = ['#e9eafe', '#fae8e9', '#e7f3ed', '#fff0dd', '#e8f0f8', '#f4e8fa', '#e7f4f3', '#f3edf0'];
@@ -22,6 +22,15 @@
   const shortDate = iso => iso ? new Date(iso).toLocaleDateString(undefined, {month:'short',day:'numeric',year:'numeric'}) : 'Never';
   const isValidHex = value => /^#[0-9a-f]{6}$/i.test(value || '');
   const safeUrl = value => { try { const u = new URL(String(value || '')); return /^https?:$/.test(u.protocol) ? u.href : ''; } catch { return ''; } };
+  // A URL pointing to the *published directory*, not a GitHub blob or file URL.
+  const safeBaseUrl = value => {
+    try {
+      const u = new URL(String(value || '').trim());
+      if (!/^https?:$/.test(u.protocol) || u.username || u.password || u.search || u.hash || /\.html?$/i.test(u.pathname)) return '';
+      if (!u.pathname.endsWith('/')) u.pathname += '/';
+      return u.href;
+    } catch { return ''; }
+  };
   const slugKey = (owner, repo) => `${owner.toLowerCase()}/${repo.toLowerCase()}`;
   const filename = path => path.split('/').pop() || path;
   const pretty = str => String(str || '').replace(/\.(html?|md)$/i,'').replace(/[_-]+/g,' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/\s+/g, ' ').trim().replace(/\b\w/g, c => c.toUpperCase()) || 'Untitled';
@@ -52,6 +61,7 @@
     base.theme = input.theme === 'dark' ? 'dark' : 'light';
     base.layout = input.layout === 'list' ? 'list' : 'grid';
     base.sort = ['custom','az','recent'].includes(input.sort) ? input.sort : 'custom';
+    base.pagesRoot = safeBaseUrl(input.pagesRoot);
     base.updatedAt = typeof input.updatedAt === 'string' ? clampStr(input.updatedAt, 50) : '';
     base.sync = {
       repo: typeof input.sync?.repo === 'string' ? clampStr(input.sync.repo, 150) : '',
@@ -61,7 +71,7 @@
       try {
         const parsed = getRepoSlug(`${s.owner}/${s.repo}`);
         return { id:parsed.id, owner:parsed.owner, repo:parsed.repo, branch:clampStr(s.branch,160),
-          scanMode:s.scanMode === 'index' ? 'index':'all', pagesUrl:safeUrl(s.pagesUrl),
+          scanMode:s.scanMode === 'index' ? 'index':'all', pagesUrl:safeUrl(s.pagesUrl), customBaseUrl:safeBaseUrl(s.customBaseUrl),
           pagesPath:s.pagesPath === '/docs' ? '/docs' : '/', pagesType:clampStr(s.pagesType,30),
           homepage:safeUrl(s.homepage), repoUrl:safeUrl(s.repoUrl) || `https://github.com/${parsed.owner}/${parsed.repo}`,
           lastScanned:clampStr(s.lastScanned,60), truncated:!!s.truncated, error:clampStr(s.error,350),
@@ -171,6 +181,40 @@
     return 'Productivity';
   }
 
+  function repoBaseInfo(source) {
+    if (source.customBaseUrl) return { base:safeBaseUrl(source.customBaseUrl), type:'custom' };
+    // The user's shared base is an explicit preference for this hub, not merely
+    // a fallback. The detected Pages URL is preferred only if no base was set.
+    if (!state.pagesRoot && source.pagesUrl) return { base:safeBaseUrl(source.pagesUrl), type:'detected' };
+    // GitHub Pages' conventional hostname is a useful suggestion even when the
+    // Pages API is inaccessible or the repository hasn't been published yet.
+    const root = safeBaseUrl(state.pagesRoot) || `https://${source.owner.toLowerCase()}.github.io/`;
+    const isAccountSite = source.repo.toLowerCase() === `${source.owner.toLowerCase()}.github.io`;
+    const lastFolder = new URL(root).pathname.split('/').filter(Boolean).pop()?.toLowerCase();
+    const base = isAccountSite || lastFolder === source.repo.toLowerCase()
+      ? root : new URL(`${encodeURIComponent(source.repo)}/`, root).href;
+    return {base, type:state.pagesRoot?'shared':'suggested'};
+  }
+  function autoLaunchUrl(source, path) {
+    if (path === '__repo__') return source.repoUrl;
+    const info = repoBaseInfo(source);
+    if (!info.base) return '';
+    // Preserve the repository's official homepage for root HTML when Pages
+    // metadata is unavailable and the user hasn't provided a base.
+    if (info.type === 'suggested' && source.homepage && path.toLowerCase() === 'index.html')
+      return safeUrl(source.homepage);
+    // An Actions workflow may publish files from outside the repo tree.
+    // An explicit repository base tells us that the user wants path mapping.
+    if (source.pagesType === 'workflow' && info.type === 'detected')
+      return path.toLowerCase() === 'index.html' ? info.base : '';
+    const sourceFolder = source.pagesPath === '/docs' ? 'docs/' : '';
+    if (sourceFolder && !path.startsWith(sourceFolder)) return '';
+    const rel = sourceFolder ? path.slice(sourceFolder.length) : path;
+    if (!rel || rel.split('/').some(part => part === '.' || part === '..')) return '';
+    // Keep the HTML filename explicit, so the output is simply base + file path.
+    return safeUrl(new URL(encodePath(rel), info.base).href);
+  }
+
   function getAllApps() {
     const apps = [];
     for (const a of state.manualApps) apps.push({ ...a, kind:'manual', sourceId:'', sourceLabel:'Custom app', sourceUrl:'', autoUrl:'', launchUrl:safeUrl(a.url), sortOrder:a.order ?? 10000 });
@@ -179,13 +223,15 @@
       const list = state.discovered[source.id] || [];
       for (let j=0;j<list.length;j++) {
         const d = list[j], o = state.overrides[d.id] || {};
+        const autoUrl = autoLaunchUrl(source,d.path);
+        const baseType = repoBaseInfo(source).type;
         apps.push({
           id:d.id, kind:'github', sourceId:source.id, sourceLabel:`${source.owner}/${source.repo}`,
-          sourceUrl:d.sourceUrl, path:d.path, autoUrl:d.autoUrl,
+          sourceUrl:d.sourceUrl, path:d.path, autoUrl, baseType,
           title:o.title || d.title, category:o.category || d.category || 'Productivity',
           emoji:o.emoji || d.emoji || '🚀', description:o.description ?? d.description,
-          tags:o.tags ?? '', status:o.status || (d.autoUrl ? 'Ready':'In progress'),
-          launchUrl:o.customUrl || d.autoUrl, url:o.customUrl || d.autoUrl,
+          tags:o.tags ?? '', status:o.status || (autoUrl && baseType !== 'suggested' ? 'Ready':'In progress'),
+          launchUrl:o.customUrl || autoUrl, url:o.customUrl || autoUrl,
           favorite:!!o.favorite, hidden:!!o.hidden, lastOpened:o.lastOpened || '',
           sortOrder:Number.isFinite(o.order) ? o.order : 1000+(i*500)+j,
         });
@@ -227,24 +273,6 @@
     persist(false,false);
   }
 
-  function pageUrlFor(path, pages, repo) {
-    const pageBase = safeUrl(pages?.html_url);
-    const sourcePath = pages?.source?.path === '/docs' ? 'docs/' : '';
-    const isWorkflow = pages?.build_type === 'workflow';
-    if (pageBase) {
-      if (isWorkflow) {
-        // GitHub Actions may publish a generated artifact unrelated to repo paths.
-        return path === 'index.html' ? pageBase : '';
-      }
-      if (sourcePath && !path.startsWith(sourcePath)) return '';
-      const relative = sourcePath ? path.slice(sourcePath.length) : path;
-      const relUrl = relative === 'index.html' ? '' : relative.endsWith('/index.html') ? relative.slice(0,-10) : relative;
-      return safeUrl(new URL(encodePath(relUrl),pageBase.endsWith('/')?pageBase:pageBase+'/').href);
-    }
-    // A configured project homepage can provide a reasonable root-entry link only.
-    if (repo.homepage && path === 'index.html') return safeUrl(repo.homepage);
-    return '';
-  }
   function htmlPagesFromTree(tree, source, pages, repoMeta) {
     const html = (tree.tree || []).filter(f=> f.type==='blob' && /\.html?$/i.test(f.path) &&
       !/(^|\/)(node_modules|\.github|\.next|vendor|coverage|__tests__|\.venv)(\/|$)/i.test(f.path) &&
@@ -258,7 +286,7 @@
       const sourceUrl = `https://github.com/${encodeURIComponent(source.owner)}/${encodeURIComponent(source.repo)}/blob/${encodePath(source.branch)}/${encodePath(path)}`;
       return { id:`github:${source.id}:${path}`, sourceId:source.id, path, title,
         category:guessCategory(`${title} ${path}`), emoji:pickEmoji(title,path),
-        autoUrl:pageUrlFor(path,pages,repoMeta), sourceUrl,
+        autoUrl:autoLaunchUrl(source,path), sourceUrl,
         description: `Discovered in ${source.owner}/${source.repo}${isRootIndex ? '' : ' · '+path}`,
       };
     });
@@ -285,7 +313,7 @@
     return data;
   }
 
-  async function scanRepository(owner, repo, mode='all') {
+  async function scanRepository(owner, repo, mode='all', options={}) {
     const id = slugKey(owner,repo);
     if (scanning.has(id)) return;
     scanning.add(id);
@@ -298,8 +326,10 @@
       catch { /* Pages may be disabled or its configuration inaccessible to the token. */ }
       const tree = await githubJSON(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/trees/${encodeURIComponent(branch)}?recursive=1`);
       if (!Array.isArray(tree.tree)) throw new Error('GitHub did not return a repository file tree.');
+      const existingSource = state.sources.find(s=>s.id===id);
       const source = {id, owner:metadata.owner?.login || owner, repo:metadata.name || repo,
         branch, scanMode:mode, pagesUrl:safeUrl(pages?.html_url),
+        customBaseUrl: options.customBaseUrl ?? existingSource?.customBaseUrl ?? '',
         pagesPath:pages?.source?.path === '/docs' ? '/docs' : '/', pagesType:pages?.build_type || '',
         homepage:safeUrl(metadata.homepage), repoUrl:safeUrl(metadata.html_url),
         lastScanned:nowIso(), truncated:!!tree.truncated, error:''};
@@ -428,6 +458,7 @@
   function appCard(app, index=0, allowReorder=false) {
     const shade=PALETTE[Math.abs(hashCode(app.id))%PALETTE.length];
     const label=app.launchUrl ? (app.path==='__repo__' && app.launchUrl===app.sourceUrl ? 'View repository':'Open app') : 'Set launch URL';
+    const isSuggested = app.kind==='github' && app.baseType==='suggested' && app.path!=='__repo__' && app.launchUrl===app.autoUrl;
     const link=app.launchUrl
       ? `<a class="card-open" data-action="open-app" data-id="${esc(app.id)}" href="${esc(app.launchUrl)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(label)}: ${esc(app.title)}">${esc(label)} ${icon('external')}</a>`
       : `<button type="button" class="card-open card-icon-button" data-action="edit-app" data-id="${esc(app.id)}" aria-label="Add launch URL for ${esc(app.title)}">Add link ${icon('arrow')}</button>`;
@@ -441,7 +472,7 @@
       </div>
       <h3>${esc(app.title)}</h3>
       <p class="card-description">${esc(app.description || 'Your project, ready to organize.')}</p>
-      <div class="card-labels"><span class="pill">${esc(app.category || 'Other')}</span><span class="pill ${stageCls}">${esc(app.status)}</span>${app.launchUrl?'':'<span class="pill pill-no-link">Needs launch URL</span>'}</div>
+      <div class="card-labels"><span class="pill">${esc(app.category || 'Other')}</span><span class="pill ${stageCls}">${esc(app.status)}</span>${isSuggested?'<span class="pill pill-suggested" title="Suggested from GitHub naming conventions; publishing has not been verified.">Suggested link</span>':''}${app.launchUrl?'':'<span class="pill pill-no-link">Needs launch URL</span>'}</div>
       <div class="card-footer"><span class="card-source" title="${esc(app.sourceLabel)}">${app.kind==='github'?'◈ ': '✳ '}${esc(app.sourceLabel)}</span>${link}</div>
       ${allowReorder?`<div class="card-order"><button class="btn btn-small" type="button" data-action="move-up" data-id="${esc(app.id)}" aria-label="Move ${esc(app.title)} earlier">${icon('up')} Earlier</button><button class="btn btn-small" type="button" data-action="move-down" data-id="${esc(app.id)}" aria-label="Move ${esc(app.title)} later">${icon('down')} Later</button></div>`:''}
     </article>`;
@@ -506,12 +537,24 @@
       </div><div id="catalogResults">${resultsHTML(mode)}</div></section>`;
   }
   function sourceCard(s) {
-    const count=(state.discovered[s.id]||[]).length;
+    const list = state.discovered[s.id] || [];
+    const count=list.length;
     const busy=scanning.has(s.id);
-    const status=s.pagesUrl?'GitHub Pages detected':'No Pages link detected';
+    const info=repoBaseInfo(s);
+    const status={detected:'Pages detected',custom:'Custom base',shared:'Shared base',suggested:'Suggested base'}[info.type];
+    const sample=list.find(d=>d.path!=='__repo__' && autoLaunchUrl(s,d.path));
+    const sampleUrl=sample ? autoLaunchUrl(s,sample.path) : '';
     return `<article class="source-card"><div class="source-head"><span class="source-logo">${icon('git')}</span><div><h3>${esc(s.owner+'/'+s.repo)}</h3><p>${esc(s.branch||'default branch')} · ${esc(s.scanMode==='index'?'Index pages':'All HTML pages')}</p></div></div>
-      <div class="source-meta"><span class="pill">${formatCount(count,'app')}</span><span class="pill ${s.pagesUrl?'pill-stage':'pill-progress'}">${esc(status)}</span>${s.truncated?'<span class="pill pill-no-link">Large tree: partial scan</span>':''}</div>
-      <div class="source-details"><p><strong>Last scan:</strong> ${esc(shortDate(s.lastScanned))}${busy?' · Scanning…':''}</p><p><strong>App URLs:</strong> ${s.pagesUrl?`<a href="${esc(s.pagesUrl)}" target="_blank" rel="noopener noreferrer">Open published site ${icon('external')}</a>`:'Set links for unpublished apps in the editor'}</p>${s.error?`<p class="source-error" role="alert">${esc(s.error)}</p>`:''}</div>
+      <div class="source-meta"><span class="pill">${formatCount(count,'app')}</span><span class="pill ${info.type==='detected'?'pill-stage':'pill-progress'}">${esc(status)}</span>${s.truncated?'<span class="pill pill-no-link">Large tree: partial scan</span>':''}</div>
+      <div class="source-details"><p><strong>Last scan:</strong> ${esc(shortDate(s.lastScanned))}${busy?' · Scanning…':''}</p>
+      <p><strong>URL base:</strong> <span class="source-url">${esc(info.base)}</span></p>
+      ${sampleUrl?`<p><strong>Example:</strong> <a class="source-url" href="${esc(sampleUrl)}" target="_blank" rel="noopener noreferrer">${esc(sampleUrl)}</a></p>`:''}
+      ${info.type==='suggested'?'<p class="small-note">Suggested URLs are not verified. GitHub Pages must be enabled for these links to work.</p>':''}
+      ${s.error?`<p class="source-error" role="alert">${esc(s.error)}</p>`:''}</div>
+      <div class="source-base-editor field"><label for="sourceBase-${esc(s.id.replace(/[^a-z0-9-]/gi,'-'))}">Override this repository's base URL</label>
+      <input id="sourceBase-${esc(s.id.replace(/[^a-z0-9-]/gi,'-'))}" class="source-base-input" type="url" value="${esc(s.customBaseUrl||'')}" placeholder="${esc(info.base)}" spellcheck="false" aria-describedby="baseHint-${esc(s.id.replace(/[^a-z0-9-]/gi,'-'))}">
+      <span class="field-hint" id="baseHint-${esc(s.id.replace(/[^a-z0-9-]/gi,'-'))}">Optional. Enter the published folder URL. Leave blank for automatic links.</span>
+      <button class="btn btn-small" type="button" data-action="save-source-base" data-id="${esc(s.id)}">${icon('check')} Save base URL</button></div>
       <div class="source-actions"><button class="btn btn-small" type="button" data-action="refresh-source" data-id="${esc(s.id)}" ${busy?'disabled':''}>${busy?'<span class="loading-spinner" aria-hidden="true"></span>':icon('refresh')} ${busy?'Scanning':'Scan now'}</button>
       <button class="btn btn-small" type="button" data-action="switch-scan" data-id="${esc(s.id)}" title="Change which HTML files are discovered">${s.scanMode==='all'?'Index only':'All HTML'}</button>
       <a class="btn btn-small" href="${esc(s.repoUrl)}" target="_blank" rel="noopener noreferrer" aria-label="Open ${esc(s.repo)} on GitHub">${icon('external')} GitHub</a>
@@ -519,8 +562,15 @@
     </article>`;
   }
   function renderSources() {
-    return `<div class="callout">${icon('info')} <strong>How discovery works:</strong> App Hub scans the repository for HTML entry pages. When GitHub Pages is enabled, it generates launch URLs for pages it can map reliably. For other projects, edit the app card to set its launch link. You can connect multiple repositories.</div>
-      ${state.sources.length?`<div class="section-heading"><div><h2>Connected repositories</h2><p>${formatCount(state.sources.length,'source')} · Use Scan now to check for new apps.</p></div><button class="btn btn-small" data-action="refresh-all" ${refreshBusy?'disabled':''}>${icon('refresh')} ${refreshBusy?'Refreshing…':'Refresh all'}</button></div>
+    return `<section class="base-panel" aria-labelledby="pagesBaseHeading"><div><div class="eyebrow">AUTOMATIC APP LINKS</div><h2 id="pagesBaseHeading">Set the web address once.</h2>
+      <p>App Hub combines the website base with each discovered HTML file's path. You can set one shared base, or let it detect GitHub Pages URLs automatically.</p></div>
+      <div class="base-panel-controls field"><label for="pagesRoot">Shared GitHub Pages website root</label>
+        <input id="pagesRoot" type="url" value="${esc(state.pagesRoot)}" placeholder="https://YOUR-USERNAME.github.io/" autocomplete="url" spellcheck="false" aria-describedby="pagesRootHint">
+        <span class="field-hint" id="pagesRootHint">Optional. Enter the host root, not a file URL. We add the repository and HTML path. Leave blank to infer each owner's GitHub Pages address.</span>
+        <button class="btn btn-primary" type="button" data-action="save-pages-root">${icon('check')} Save shared base</button>
+      </div><div class="base-example"><strong>Example</strong><div><code>https://username.github.io/</code> + <code>my-apps/tools/diagram.html</code></div><div class="base-example-result">= <code>https://username.github.io/my-apps/tools/diagram.html</code></div></div></section>
+      <div class="callout">${icon('info')} <strong>Automatic link order:</strong> A repository's custom base takes priority, then your shared base, then GitHub's detected Pages address, then an inferred <code>owner.github.io</code> address. Inferred links may not work until GitHub Pages is published.</div>
+      ${state.sources.length?`<div class="section-heading"><div><h2>Connected repositories</h2><p>${formatCount(state.sources.length,'source')} · Edit a repository's base URL below without rescanning.</p></div><button class="btn btn-small" data-action="refresh-all" ${refreshBusy?'disabled':''}>${icon('refresh')} ${refreshBusy?'Refreshing…':'Refresh all'}</button></div>
       <div class="source-grid">${state.sources.map(sourceCard).join('')}</div>`:emptyHTML('sources')}
       <section class="section" style="margin-top:28px"><div class="info-panel"><h2>Find repositories by GitHub username</h2><p class="muted">Browse your public repositories, even when you don't remember their exact URLs.</p><button class="btn" data-action="discover">${icon('search')} Browse repositories</button></div></section>`;
   }
@@ -618,7 +668,10 @@
     $('#appIcon').value=app?.emoji||'🚀';
     $('#appCategory').value=app?.category||'Productivity';
     $('#appUrl').value=app?.launchUrl||'';
-    $('#appUrlHint').textContent=app?.kind==='github'?'Override the GitHub Pages link if needed. Leave blank to use the detected default when available.':'Use an http:// or https:// URL. You can also leave it blank for a work in progress.';
+    $('#appUrlHint').textContent=app?.kind==='github'
+      ?`Generated from the repository HTML path: ${app.autoUrl || 'Not available for this publishing setup'}. Change the URL only if this link is incorrect.`
+      :'Use an http:// or https:// URL. You can also leave it blank for a work in progress.';
+    $('#useAutoUrl').hidden=app?.kind!=='github' || !app?.autoUrl;
     $('#appDescription').value=app?.description||'';
     $('#appTags').value=app?.tags||'';
     $('#appStatus').value=app?.status||'Ready';
@@ -637,9 +690,12 @@
     try { parsed=getRepoSlug($('#repoUrl').value); }
     catch(e) { message.textContent=e.message;return; }
     const mode=$('#repoForm').elements.scanMode.value;
+    const typedBase=$('#repoBaseUrl').value.trim();
+    const customBaseUrl=typedBase?safeBaseUrl(typedBase):'';
+    if(typedBase && !customBaseUrl) { message.textContent='Enter a valid published folder URL starting with https:// (not a link to an HTML file).';return; }
     button.disabled=true; message.textContent=`Reading ${parsed.owner}/${parsed.repo} from GitHub…`;
     try {
-      const result=await scanRepository(parsed.owner,parsed.repo,mode);
+      const result=await scanRepository(parsed.owner,parsed.repo,mode,{customBaseUrl:customBaseUrl||undefined});
       closeDialog('repoDialog');
       navigate('sources');
       notify(`Connected ${parsed.owner}/${parsed.repo}: ${formatCount(result.count,'project')} found.${result.truncated?' This repository is too large for a complete tree scan.':''}`);
@@ -736,6 +792,26 @@
     try {const result=await scanRepository(parsed.owner,parsed.repo,'all');button.textContent='Connected';notify(`${parsed.repo} added (${formatCount(result.count,'app')}).`);}
     catch(e){button.disabled=false;button.textContent='Try again';notify(`${parsed.repo}: ${e.message}`,'error');}
   }
+  function savePagesRoot() {
+    const input=$('#pagesRoot');
+    const typed=input.value.trim();
+    const next=typed?safeBaseUrl(typed):'';
+    if (typed && !next) {notify('Enter a valid website directory URL, such as https://username.github.io/.','error');input.focus();return;}
+    state.pagesRoot=next;
+    persist();
+    notify(next?'Shared GitHub Pages base saved; launch links updated immediately.':'Shared base cleared. Default GitHub Pages addresses are inferred.');
+  }
+  function saveSourceBase(id,button) {
+    const source=state.sources.find(s=>s.id===id);
+    const input=button.closest('.source-card')?.querySelector('.source-base-input');
+    if(!source || !input)return;
+    const typed=input.value.trim();
+    const next=typed?safeBaseUrl(typed):'';
+    if(typed && !next) {notify('Enter a valid published directory URL, such as https://username.github.io/my-apps/.','error');input.focus();return;}
+    source.customBaseUrl=next;
+    persist();
+    notify(next?`Base URL saved for ${source.repo}; its app links are updated.`:`Custom base cleared for ${source.repo}; automatic links restored.`);
+  }
   function saveWorkspaceName() {
     const name=$('#workspaceName').value.trim();
     if(!name){notify('Enter a workspace name.','error');return;}
@@ -766,6 +842,9 @@
       case 'open-app': markOpened(id);break;
       case 'refresh-all': await refreshSources();break;
       case 'refresh-source':await refreshOne(id);break;
+      case 'save-pages-root':savePagesRoot();break;
+      case 'save-source-base':saveSourceBase(id,trigger);break;
+      case 'use-auto-url':{const app=getAppById($('#appEditId').value);if(app){$('#appUrl').value=app.autoUrl||'';$('#appMessage').textContent='Using the generated link. Save the app to remove a previous override.';}break;}
       case 'remove-source':removeSource(id);break;
       case 'switch-scan':await switchScan(id);break;
       case 'category':category=trigger.dataset.category;render();break;
