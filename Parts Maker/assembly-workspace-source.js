@@ -23,6 +23,29 @@ class Workspace{
    if(overlap.every(x=>x>1e-6)||gap<=clearance+1e-6)results.push({a:p.itemId,b:q.itemId,partA:p.name,partB:q.name,kind:overlap.every(x=>x>1e-6)?'Possible interference':gap<1e-6?'Envelope contact':'Within clearance',gap});
   }return results;
  }
+ combine(ids,merge=false){
+  const chosen=this.items.filter(i=>ids.includes(i.id));
+  if(chosen.length<2||chosen.some(i=>!i.visible))throw Error('Choose two visible items.');
+  let parts=chosen.flatMap(i=>i.parts.map(p=>({name:p.name,mesh:{vertices:p.mesh.vertices.map(v=>this.transform(i,v)),faces:copy(p.mesh.faces)}})));
+  if(merge){
+   if(parts.reduce((n,p)=>n+p.mesh.faces.length,0)>12000)throw Error('Merge supports up to 12,000 triangles. Join these items as a group instead.');
+   const mesh=root.Geo.toMesh(root.Geo.union(parts.map(p=>root.Geo.solidFromMesh(p.mesh))));
+   if(!root.Geo.meshStats(mesh).valid)throw Error('Merge could not produce a valid solid. Adjust overlap and try again.');
+   parts=[{name:'Merged solid',mesh}];
+  }
+  const b=root.Geo.bounds(parts.flatMap(p=>p.mesh.vertices)),item={id:this.nextId++,name:merge?'Merged solid':'Joined group',parts,position:[0,0,0],rotation:[0,0,0],pivot:b.min.map((x,k)=>(x+b.max[k])/2),visible:true};
+  this.items=this.items.filter(i=>!ids.includes(i.id));this.items.push(item);return item;
+ }
+ ungroup(id){
+  const item=this.items.find(i=>i.id===id);if(!item||item.parts.length<2)throw Error('Select a group with multiple components.');
+  const items=item.parts.map(p=>{const mesh={vertices:p.mesh.vertices.map(v=>this.transform(item,v)),faces:copy(p.mesh.faces)},b=root.Geo.bounds(mesh.vertices);return {id:this.nextId++,name:p.name,parts:[{name:p.name,mesh}],position:[0,0,0],rotation:[0,0,0],pivot:b.min.map((x,k)=>(x+b.max[k])/2),visible:item.visible};});
+  this.items=this.items.filter(i=>i.id!==id);this.items.push(...items);return items;
+ }
+ align(id,target,axis,contact=false){
+  const a=this.items.find(i=>i.id===id),b=this.items.find(i=>i.id===target);if(!a||!b||a===b||![0,1,2].includes(axis))throw Error('Choose a different target item and an axis.');
+  const bounds=i=>root.Geo.bounds(i.parts.flatMap(p=>p.mesh.vertices.map(v=>this.transform(i,v)))),ab=bounds(a),bb=bounds(b);
+  a.position[axis]+=contact?bb.max[axis]-ab.min[axis]:(bb.min[axis]+bb.max[axis]-ab.min[axis]-ab.max[axis])/2;
+ }
  serialize(){return JSON.stringify({application:'Parts Studio Assembly',version:1,items:this.items},null,2);}
  load(text){
   const data=JSON.parse(text),vec=v=>Array.isArray(v)&&v.length===3&&v.every(x=>typeof x==='number'&&Number.isFinite(x)&&Math.abs(x)<=1e7);
