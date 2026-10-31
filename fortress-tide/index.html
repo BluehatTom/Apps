@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0c1724">
+<title>Fortress Tide | Castle Defense Game</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1623;--card:#142737;--card2:#183244;--line:#355469;--text:#eaf1f0;--muted:#a1b6bd;--gold:#f1c47b;--gold2:#c48b4e;--mint:#72d6ba;--red:#ff9a80}
+*{box-sizing:border-box}html{background:var(--bg);min-height:100%}body{margin:0;color:var(--text);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Arial,sans-serif;background:radial-gradient(ellipse 60% 460px at 0 0,#214b5a7a,transparent),radial-gradient(ellipse 40% 450px at 100% 75%,#26443b60,transparent),var(--bg);min-height:100vh}button,select{font:inherit}button{cursor:pointer}button:focus-visible,select:focus-visible,canvas:focus-visible{outline:3px solid #ffe5b1;outline-offset:3px}button:disabled{cursor:not-allowed;opacity:.42}h1,h2,h3,p{margin:0}.container{max-width:1390px;padding-inline:clamp(12px,2.6vw,38px);margin-inline:auto}header{display:flex;justify-content:space-between;gap:16px;align-items:center;padding-block:22px 18px}.brand{display:flex;align-items:center;gap:12px}.logo{width:49px;height:49px;border-radius:12px;background:linear-gradient(140deg,#345868,#142736);border:1px solid #dfb77d80;display:grid;place-items:center;box-shadow:0 6px 18px #0004}.logo svg{width:34px;height:34px}.brand h1{font:700 clamp(26px,3vw,36px)/1.03 Georgia,"Times New Roman",serif;letter-spacing:.35px}.brand .subtitle{margin-top:4px;color:#a2b8c2;font-size:12px}.eyebrow{letter-spacing:1.9px;text-transform:uppercase;color:var(--gold);font-size:10px;font-weight:850}.head-actions{display:flex;justify-content:flex-end;gap:7px;flex-wrap:wrap}.small-button{background:#1b3445;border:1px solid #476376;border-radius:9px;color:#dfeaf0;font-weight:700;padding:9px 12px}.small-button:hover:not(:disabled){background:#28475a}.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}.stat{display:flex;gap:12px;align-items:center;min-height:73px;border:1px solid #365365;background:linear-gradient(180deg,#1a3141,#142735);border-radius:11px;padding:11px 15px}.stat-icon{display:grid;place-items:center;flex:none;width:37px;height:37px;border-radius:9px;background:#294354;color:var(--gold);font-size:20px}.stat-label{font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#a7b9c1}.stat-value{font-size:22px;font-weight:850;line-height:1.25;font-variant-numeric:tabular-nums}.stat-value.hearts{color:#ffac9e;letter-spacing:2px}.layout{display:grid;grid-template-columns:minmax(0,1fr) 286px;gap:15px;align-items:start}.stage,.panel{background:var(--card);border:1px solid #3c5869;border-radius:13px;overflow:hidden;box-shadow:0 16px 38px #0004}.phase-strip{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 15px;min-height:56px;background:linear-gradient(100deg,#1c3848,#142637);border-bottom:1px solid #3c5869}.phase-name{font-size:15px;letter-spacing:.7px;font-weight:900;text-transform:uppercase}.phase-details{color:#a6bac3;font-size:11px;margin-top:1px}.clock{display:flex;align-items:center;gap:10px}.track{width:115px;height:7px;border:1px solid #4a6575;border-radius:7px;background:#0d1f2d;overflow:hidden}.track div{height:100%;width:100%;background:linear-gradient(90deg,#b38148,#f1c47b)}.timer{font-variant-numeric:tabular-nums;font-size:24px;font-weight:850;min-width:31px;text-align:right;color:var(--gold)}.timer.urgent{color:var(--red)}.board-area{position:relative;background:#173d4b;overflow:hidden;touch-action:none}#board{display:block;width:100%;height:auto;aspect-ratio:3/2;cursor:crosshair;touch-action:none}.overlay{position:absolute;z-index:6;inset:0;display:flex;align-items:center;justify-content:center;padding:14px;background:#081823e5;backdrop-filter:blur(4px);overflow-y:auto;line-height:1.45}.overlay[hidden]{display:none}.modal{width:min(100%,530px);padding:clamp(18px,3vw,27px);border-radius:14px;border:1px solid #bb955f99;background:radial-gradient(ellipse at top,#2e5160,#122a3c 75%);box-shadow:0 20px 80px #000a;text-align:center;line-height:1.5}.modal-mark{font:700 32px Georgia,serif;color:var(--gold);margin-bottom:3px}.modal h2{font:700 clamp(25px,3vw,39px)/1.13 Georgia,serif;color:#f6e1c0;margin-bottom:11px}.modal p{font-size:13px;color:#bcd0d6;margin-bottom:15px;max-width:450px;margin-inline:auto}.modal-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:left;margin:15px 0}.modal-steps>div{background:#0d2635;border:1px solid #345365;border-radius:8px;padding:10px 9px}.modal-steps b{display:block;color:#f3cb8b;font-size:11px;letter-spacing:.7px}.modal-steps span{display:block;color:#a7bec8;font-size:11px;margin-top:4px;line-height:1.4}.modal label{color:#c6d7dc;font-size:12px;font-weight:750}.difficulty{background:#152c3d;color:var(--text);border:1px solid #658292;border-radius:7px;padding:9px 12px;margin:7px 0 17px;width:min(100%,270px)}.big-button{background:linear-gradient(#f9dca6,#d6a36e);border:1px solid #f6dca8;border-radius:8px;color:#172735;font-weight:900;padding:11px 20px;min-width:172px;box-shadow:0 4px 0 #865b37}.big-button:hover{filter:brightness(1.08)}.ghost-button{background:transparent;color:#d2e2e5;border:1px solid #5b7481;border-radius:8px;padding:10px 17px;margin-left:7px;font-weight:750}.ghost-button:hover{background:#2b4552}.modal-note{margin-top:14px!important;font-size:11px!important;color:#9fb5bd!important}.modal-list{max-width:420px;text-align:left;margin:9px auto 20px;padding-left:19px;color:#d1dfe2;font-size:13px;line-height:1.65}.toast{position:absolute;z-index:5;top:10px;left:50%;transform:translateX(-50%);max-width:86%;text-align:center;border:1px solid #deba7a;background:#132e3deb;color:#f5e3c6;padding:8px 13px;border-radius:8px;pointer-events:none;font-size:12px;font-weight:760;box-shadow:0 6px 20px #0007}.toast[hidden]{display:none}.board-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#172d3b;border-top:1px solid #385666;padding:10px 15px;font-size:11px;color:#b8c8cf}.key{font-size:10px;font-weight:800;border:1px solid #5d7684;border-radius:4px;padding:2px 5px;background:#2a4555;color:#edf2ed}.aside{display:flex;flex-direction:column;gap:12px}.panel{padding:16px;box-shadow:none}.panel h2{font-size:11px;letter-spacing:1.65px;color:var(--gold);text-transform:uppercase;margin-bottom:10px}.panel p{font-size:12px;color:#b7c9d1}.phase-copy{min-height:45px;margin-bottom:12px!important}.piece-box{display:flex;gap:11px;align-items:center;padding:9px;background:#1a3546;border:1px solid #426174;border-radius:10px}.piece-box canvas{display:block;width:91px;height:74px;flex:none;background:#102636;border:1px solid #355264;border-radius:7px}.piece-box strong{font-size:13px;display:block}.piece-box span{font-size:11px;display:block;color:#a7bec8;margin-top:4px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}.action{background:#284556;border:1px solid #607a88;border-radius:8px;padding:10px 6px;color:#f3f7f5;font-weight:800;font-size:12px}.action:hover:not(:disabled){background:#3a5a6b}.action.active{background:#36604f;border-color:#83d8ab;color:#dcffe9}.action.main{background:#d8ad74;border-color:#f8d299;color:#172a36}.action.main:hover:not(:disabled){background:#f1c88e}.action.full{grid-column:1/-1}.separator{border:0;border-top:1px solid #3c5b6d;margin:13px 0}.status-line{display:flex;justify-content:space-between;gap:8px;margin-top:8px;color:#b1c6cd;font-size:12px}.status-line strong{font-variant-numeric:tabular-nums;color:#e7f0ee}.status-line strong.ok{color:#83e5be}.status-line strong.bad{color:#ffab95}.step{display:flex;align-items:start;gap:10px;margin:10px 0}.step .num{flex:none;display:grid;place-items:center;width:22px;height:22px;background:#28495a;color:#ebc789;border-radius:6px;font-size:11px;font-weight:850}.step b{font-size:12px;display:block}.step span{font-size:11px;color:#a4bdc6}.events{display:flex;flex-direction:column;gap:9px}.event{display:flex;gap:9px;align-items:flex-start;color:#c4d4d7;font-size:12px}.dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#e4c18b;margin-top:6px;flex:none}.dot.red{background:#ed897c}.dot.green{background:#75ddb9}footer{color:#7895a3;text-align:center;font-size:11px;padding-top:18px;padding-bottom:26px}.visually-hidden{position:absolute!important;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}@media(max-width:1000px){.layout{grid-template-columns:minmax(0,1fr) 244px}.stat{padding:9px;gap:7px}.stat-icon{width:31px;height:31px}.panel{padding:13px}}@media(max-width:740px){.board-area.modal-open{min-height:570px}header{align-items:flex-start;flex-wrap:wrap;padding-top:13px}.head-actions{width:100%;justify-content:flex-start}.stats{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}.stat{display:block;min-height:0;padding:8px 5px;text-align:center}.stat-icon{display:none}.stat-label{font-size:8px;letter-spacing:.75px}.stat-value{font-size:17px}.stat-value.hearts{letter-spacing:0}.layout{grid-template-columns:1fr}.aside{display:grid;grid-template-columns:1fr 1fr;gap:10px}.aside .command{grid-column:1/-1}.actions{grid-template-columns:repeat(4,1fr)}.action.full{grid-column:1/-1}.board-footer{font-size:10px}.board-footer span:last-child{display:none}}@media(max-width:460px){.brand h1{font-size:29px}.modal-steps{gap:5px}.modal-steps>div{padding:8px 6px}.modal-steps b{font-size:10px}.modal-steps span{font-size:10px}.modal{padding:14px}.modal p{font-size:12px}.modal h2{font-size:27px}.ghost-button{margin:9px 0 0}.phase-strip{padding:8px}.track{width:62px}.phase-name{font-size:13px}.phase-details{font-size:10px}.timer{font-size:20px}.aside{grid-template-columns:1fr 1fr}.aside .panel:not(.command) h2{font-size:10px}.panel{padding:11px}.panel p{font-size:11px}.step{gap:5px}.step .num{width:17px;height:17px}.step b{font-size:11px}.step span{font-size:10px}.action{font-size:11px}.stage,.panel{border-radius:9px}}@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+
+/* Full Control edition */
+[hidden]{display:none!important}
+button,input,select{font:inherit}
+input:focus-visible{outline:3px solid #ffe5b1;outline-offset:2px}
+.phase-heading{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.mode-chip{background:#244d43;border:1px solid #6bbaa0;border-radius:5px;padding:3px 6px;font-size:9px;letter-spacing:.8px;font-weight:900;color:#abf3d6}
+.control-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.control-heading h2{margin-bottom:0}
+.control-tag{font-size:10px;letter-spacing:1px;background:#244d43;color:#a0e7ce;border:1px solid #568f7c;border-radius:5px;padding:3px 7px;font-weight:800}
+.full-panel{background:linear-gradient(180deg,#1a3942,#142a39)}
+.full-panel>p{font-size:11px;line-height:1.55}
+.fleet-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:13px}
+.fleet-row label{font-size:12px;font-weight:800;color:#d9e8e6}
+.fleet-row strong{font-size:22px;color:#f1c47b;font-variant-numeric:tabular-nums}
+.fleet-slider{appearance:auto;display:block;accent-color:#e9ba7c;width:100%;height:28px;margin:6px 0 4px;cursor:pointer}
+.ship-spinner{display:flex;gap:7px;align-items:stretch;justify-content:center;margin:3px 0 10px}
+.ship-spinner input{background:#0b2331;border:1px solid #648092;color:#f7e3c1;text-align:center;font-size:18px;font-weight:800;border-radius:7px;width:100%;min-width:0;padding:6px 4px;font-variant-numeric:tabular-nums}
+.ship-spinner button{background:#2b4d60;color:#f4e5ce;border:1px solid #638393;border-radius:7px;width:45px;flex:none;font-size:21px;font-weight:850}
+.ship-spinner button:hover:not(:disabled){background:#416478}
+.control-note{color:#9dc0c4!important;min-height:30px;font-size:10px!important}
+.control-actions{margin-top:9px}
+.control-actions .action{font-size:11px;padding:9px 3px}
+.mode-setup{border:1px solid #496f70;background:#142f3d;border-radius:10px;padding:10px 12px;margin:10px auto;max-width:370px;text-align:left}
+.mode-setup label{display:block;color:#d8e7e5;font-size:12px;font-weight:800}
+.mode-setup select{display:block;width:100%;border:1px solid #658292;border-radius:7px;background:#122937;color:#eff1e8;padding:8px;margin:5px 0 2px}
+.mode-setup .mode-hint{font-size:11px;line-height:1.35;margin:8px 0 0;color:#b7cfd1}
+.mode-setup .custom-intro{border-top:1px solid #436474;margin-top:10px;padding-top:9px}
+.mode-setup input[type=number]{display:block;margin-top:5px;width:100%;padding:8px;background:#112735;color:#f9e1b4;border:1px solid #607e89;border-radius:7px;font-size:17px;font-weight:750}
+.board-area.modal-open{min-height:750px}
+.overlay{align-items:safe center}
+@media(max-width:740px){.aside .full-panel{grid-column:1/-1}.board-area.modal-open{min-height:800px}}
+@media(max-width:460px){.mode-setup{padding:8px;margin:8px 0}.modal-steps{margin:8px 0}.modal-note{margin-top:9px!important}}
+
+</style>
+</head>
+<body>
+<header class="container">
+ <div class="brand"><div class="logo" aria-hidden="true"><svg viewBox="0 0 40 40" fill="none"><path d="M7 29V15h6v-5h5v5h4v-5h5v5h6v14H7Z" stroke="#f5d59b" stroke-width="2.2" stroke-linejoin="round"/><path d="M17 29v-7h6v7M3 34h34" stroke="#f5d59b" stroke-width="2.2" stroke-linecap="round"/><path d="M9 21h3m16 0h3" stroke="#90dcc9" stroke-width="2.2" stroke-linecap="round"/></svg></div><div><div class="eyebrow">An original castle-defense arcade game</div><h1>Fortress Tide</h1><p class="subtitle">Build the walls. Hold the coast. Sink the fleet.</p></div></div>
+ <div class="head-actions"><button class="small-button" id="helpBtn" type="button">How to play</button><button class="small-button" id="soundBtn" type="button">Sound: On</button><button class="small-button" id="pauseBtn" type="button">Pause</button><button class="small-button" id="newBtn" type="button">New game</button></div>
+</header>
+<main class="container">
+ <section class="stats" aria-label="Game statistics">
+  <div class="stat"><div class="stat-icon" aria-hidden="true">#</div><div><div class="stat-label">Wave</div><div class="stat-value" id="waveStat">1 / 5</div></div></div>
+  <div class="stat"><div class="stat-icon" aria-hidden="true">&#9829;</div><div><div class="stat-label">Lives</div><div class="stat-value hearts" id="livesStat">&#9829; &#9829; &#9829;</div></div></div>
+  <div class="stat"><div class="stat-icon" aria-hidden="true">+</div><div><div class="stat-label">Score</div><div class="stat-value" id="scoreStat">0</div></div></div>
+  <div class="stat"><div class="stat-icon" aria-hidden="true">*</div><div><div class="stat-label">Best score</div><div class="stat-value" id="bestStat">0</div></div></div>
+ </section>
+ <div class="layout">
+  <section class="stage" aria-label="Game board">
+    <div class="phase-strip"><div><div class="phase-heading"><span class="phase-name" id="phaseName">READY TO DEFEND</span><span class="mode-chip" id="modeChip" hidden>FULL CONTROL</span></div><div class="phase-details" id="phaseDetails">Choose a game mode to begin.</div></div><div class="clock"><div class="track"><div id="timeBar"></div></div><span class="timer" id="timeStat">--</span></div></div>
+   <div class="board-area"><canvas id="board" width="900" height="600" tabindex="0" role="application" aria-label="Fortress Tide game board. Use the mouse or arrow keys to target. Press Enter or Space to build or fire.">Your browser needs HTML5 Canvas to play.</canvas><div class="toast" id="toast" role="status" hidden></div><div class="overlay" id="overlay"></div></div>
+   <div class="board-footer"><span id="footerHint">Click or tap to place walls. Press R to rotate.</span><span><span class="key">ARROWS</span> aim &nbsp; <span class="key">R</span> rotate &nbsp; <span class="key">SPACE</span> act</span></div>
+  </section>
+  <aside class="aside">
+   <section class="panel command"><h2>Command deck</h2><p class="phase-copy" id="phaseCopy">Secure your keep by surrounding it with walls before battle begins.</p>
+    <div class="piece-box"><canvas id="pieceCanvas" width="116" height="94" aria-label="Next wall piece preview"></canvas><div><strong id="pieceName">Wall section</strong><span id="pieceDetail">Rotate and place on open land.</span></div></div>
+     <div class="actions"><button class="action active" id="wallBtn" type="button">Wall piece</button><button class="action" id="patchBtn" type="button">Patch tile</button><button class="action" id="cannonBtn" type="button" hidden>Place cannon (C)</button><button class="action" id="rotateBtn" type="button">Rotate (R)</button><button class="action" id="fireBtn" type="button">Fire (hold)</button><button class="action main full" id="finishBtn" type="button">Finish building</button></div>
+    <hr class="separator"><div class="status-line"><span>Keep protection</span><strong class="ok" id="keepStatus">SEALED</strong></div><div class="status-line"><span>Wall sections</span><strong id="piecesStat">8</strong></div><div class="status-line"><span>Repair patches</span><strong id="patchesStat">3</strong></div><div class="status-line"><span>Working cannons</span><strong id="cannonsStat">2</strong></div><div class="status-line"><span>Outposts secured</span><strong id="outpostsStat">0 / 2</strong></div><div class="status-line"><span>Enemy ships</span><strong id="shipsStat">0</strong></div>
+   </section>
+    <section class="panel full-panel" id="controlPanel" hidden>
+     <div class="control-heading"><h2>Full Control</h2><span class="control-tag">SANDBOX</span></div>
+     <p>Unlimited cannon supply. Deploy on any empty land, even outside the walls. Select exactly how many ships attack each wave.</p>
+     <div class="fleet-row"><label for="fleetInput">Ships this battle</label><strong id="fleetValue">12</strong></div>
+     <input class="fleet-slider" id="fleetRange" type="range" min="1" max="200" step="1" value="12" aria-label="Ships this battle">
+     <div class="ship-spinner"><button type="button" id="fleetMinus" aria-label="One fewer ship">-</button><input id="fleetInput" type="number" min="1" max="200" step="1" value="12" aria-label="Ships this battle"><button type="button" id="fleetPlus" aria-label="One more ship">+</button></div>
+     <p class="control-note" id="fleetNote">Choose 1-200 ships. You can change the number before each battle.</p>
+     <div class="actions control-actions"><button class="action" id="fillCannons" type="button">Fill open land</button><button class="action" id="clearCannons" type="button">Clear cannons</button></div>
+    </section>
+   <section class="panel"><h2>Three steps to victory</h2><div class="step"><span class="num">1</span><div><b>Build and patch</b><span>Close broken walls. Enclose more land to expand defenses.</span></div></div><div class="step"><span class="num">2</span><div><b>Add cannons</b><span>Place cannons inside sealed ground.</span></div></div><div class="step"><span class="num">3</span><div><b>Defend</b><span>Click ships or hold to fire. Lead targets as they sail.</span></div></div></section>
+   <section class="panel"><h2>Battle log</h2><div class="events" id="events"><div class="event"><span class="dot"></span><span>Your fort awaits its commander.</span></div></div></section>
+  </aside>
+ </div>
+</main>
+<footer class="container">Fortress Tide is a self-contained, original browser game. No account, internet connection, or installation required.</footer>
+<div id="live" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
+<script>
+(()=>{
+'use strict';
+const C=30,R=20,T=30,W=C*T,H=R*T,$=id=>document.getElementById(id);
+const canvas=$('board'),g=canvas.getContext('2d'),preview=$('pieceCanvas'),pg=preview.getContext('2d');
+if(!g||!pg){$('overlay').textContent='This browser does not support Canvas.';return;}
+const dirs=[[1,0],[-1,0],[0,1],[0,-1]],K=(x,y)=>x+','+y,rand=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const SHAPES=[
+ {name:'Single stone',cells:[[0,0]]},{name:'Short straight',cells:[[0,0],[1,0]]},
+ {name:'Long straight',cells:[[0,0],[1,0],[2,0]]},{name:'Stone corner',cells:[[0,0],[0,1],[1,1]]},
+ {name:'Fort corner',cells:[[0,0],[0,1],[0,2],[1,2]]},{name:'Battlement',cells:[[0,0],[1,0],[2,0],[3,0]]},
+ {name:'Zigzag wall',cells:[[0,0],[1,0],[1,1],[2,1]]},{name:'T-wall',cells:[[0,0],[1,0],[2,0],[1,1]]},
+ {name:'Square bastion',cells:[[0,0],[1,0],[0,1],[1,1]]}
+];
+ const MODES={relaxed:{name:'Relaxed',waves:4,build:70,arm:32,battle:35,sections:11,patches:6,enemyRate:.77},classic:{name:'Classic',waves:5,build:55,arm:25,battle:37,sections:9,patches:4,enemyRate:1},hard:{name:'Admiral',waves:6,build:45,arm:20,battle:38,sections:8,patches:3,enemyRate:1.28}};
+ const MAX_CUSTOM_SHIPS=200;
+ const fleetClamp=v=>clamp(Number.isFinite(Number(v))?Math.round(Number(v)):12,1,MAX_CUSTOM_SHIPS);
+ let selectedMode='standard',selectedFleet=12,shotThrottle=0;
+const leftEdge=y=>6+Math.round(.7*Math.sin(y*.65)+.6*Math.sin(y*.26)),rightEdge=y=>23+Math.round(.65*Math.sin(y*.51+1)+.55*Math.cos(y*.33));
+const land=(x,y)=>y>0&&y<R-1&&x>=leftEdge(y)&&x<=rightEdge(y);
+const keep={x:13,y:9},outposts=[{x:19,y:5},{x:20,y:15}];
+const seedHash=(x,y)=>{let n=Math.imul(x+29,73856093)^Math.imul(y+59,19349663);n=Math.imul(n^(n>>>13),1274126177);return ((n^(n>>>16))>>>0)/4294967296;};
+let s=null,modal='intro',helpReturn='intro',selected='classic',muted=false,ac=null;
+let hover={x:13,y:10,px:405,py:315},held=false,heldButton=false,lastFrame=performance.now(),uiTick=0,toastExpire=0,explosionEvents=[],sparks=[];
+let motionOK=!window.matchMedia||!window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function bestScore(){try{return Number(localStorage.getItem('fortress-tide-rebuilt-best'))||0;}catch{return 0;}}
+let best=bestScore();
+function updateBest(){if(s&&s.score>best){best=s.score;try{localStorage.setItem('fortress-tide-rebuilt-best',String(best));}catch{}}}
+function beep(kind){if(muted)return;try{ac=ac||new(window.AudioContext||window.webkitAudioContext)();if(ac.state==='suspended')ac.resume();const map={build:[300,.12,'triangle',.033],error:[115,.12,'square',.022],fire:[115,.14,'sawtooth',.03],boom:[72,.26,'sawtooth',.05],sunk:[390,.34,'sine',.065],next:[660,.25,'triangle',.04]};let [f,d,type,v]=map[kind]||map.build,o=ac.createOscillator(),gain=ac.createGain(),now=ac.currentTime;o.type=type;o.frequency.setValueAtTime(f,now);o.frequency.exponentialRampToValueAtTime(Math.max(45,f*.57),now+d);gain.gain.setValueAtTime(v,now);gain.gain.exponentialRampToValueAtTime(.0001,now+d);o.connect(gain);gain.connect(ac.destination);o.start(now);o.stop(now+d+.02);}catch{}}
+function log(message,tone=''){const box=$('events'),row=document.createElement('div');row.className='event';const dot=document.createElement('span');dot.className='dot '+(tone==='bad'?'red':tone==='good'?'green':'');const txt=document.createElement('span');txt.textContent=message;row.append(dot,txt);box.prepend(row);while(box.children.length>4)box.lastElementChild.remove();}
+function toast(message,bad=false){const el=$('toast');el.textContent=message;el.style.borderColor=bad?'#f49f86':'#e2be85';el.hidden=false;toastExpire=performance.now()+2250;$('live').textContent=message;}
+function shapeFor(){if(!s||s.queue.length===0)return null;const shape=SHAPES[s.queue[0]];return {name:shape.name,cells:rotated(shape.cells,s.rotation)};}
+function rotated(cells,r){let out=cells.map(([x,y])=>{for(let n=0;n<r;n++){[x,y]=[-y,x]}return [x,y]});const minx=Math.min(...out.map(v=>v[0])),miny=Math.min(...out.map(v=>v[1]));return out.map(([x,y])=>[x-minx,y-miny]);}
+function buildQueue(n){let a=[3,2,4,7,1,8,5,6];while(a.length<n)a.push(Math.floor(Math.random()*SHAPES.length));return a.slice(0,n);}
+function initialWalls(){const w=new Set();for(let x=11;x<=16;x++){w.add(K(x,7));w.add(K(x,12));}for(let y=8;y<=11;y++){w.add(K(11,y));w.add(K(16,y));}return w;}
+function createState(){
+ const full=selectedMode==='full';
+ s={phase:'build',wave:1,lives:3,score:0,fullControl:full,fleetSize:fleetClamp(selectedFleet),elapsed:0,
+    walls:initialWalls(),cannons:[{x:12,y:10,cd:0,angle:-Math.PI/2},{x:14,y:10,cd:0,angle:-Math.PI/2}],
+    queue:[],patches:0,rotation:0,tool:'wall',time:0,total:0,cannonPlaces:0,sealed:false,inside:new Set(),protected:0,
+    outposts:0,ships:[],shots:[],spawned:0,spawnLimit:0,spawnIn:0,sunk:0,breached:0,uid:1,paused:false,roundResult:null};
+ s.queue=buildQueue(MODES[selected].sections);
+ s.patches=MODES[selected].patches;
+ s.time=s.total=full?Infinity:MODES[selected].build;
+ shotThrottle=0;
+ $('controlPanel').hidden=!full;
+ $('cannonBtn').hidden=!full;
+ $('modeChip').hidden=!full;
+ if(full) syncFleetUI();
+ recalculate();
+ log(full?'Full Control: unlimited cannons, '+s.fleetSize+' ships per battle.':'The keep is sealed. Strengthen the walls before battle.','good');
+ updateHud();
+}
+function recalculate(){if(!s)return;const reachable=new Set(),q=[];function add(x,y){let k=K(x,y);if(x<0||y<0||x>=C||y>=R||s.walls.has(k)||reachable.has(k))return;reachable.add(k);q.push([x,y]);}for(let x=0;x<C;x++){add(x,0);add(x,R-1);}for(let y=0;y<R;y++){add(0,y);add(C-1,y);}for(let i=0;i<q.length;i++){const [x,y]=q[i];for(const [dx,dy] of dirs)add(x+dx,y+dy);}s.inside=new Set();for(let y=1;y<R-1;y++)for(let x=1;x<C-1;x++)if(land(x,y)&&!s.walls.has(K(x,y))&&!reachable.has(K(x,y)))s.inside.add(K(x,y));s.sealed=s.inside.has(K(keep.x,keep.y));s.protected=s.inside.size;s.outposts=outposts.filter(o=>s.inside.has(K(o.x,o.y))).length;}
+function canBuild(cells,x,y){return cells.every(([dx,dy])=>{const px=x+dx,py=y+dy,key=K(px,py);return land(px,py)&&!s.walls.has(key)&&!s.cannons.some(c=>c.x===px&&c.y===py)&&!(keep.x===px&&keep.y===py)&&!outposts.some(o=>o.x===px&&o.y===py);});}
+function placeWall(x,y){if(!s||s.phase!=='build')return;let isPatch=s.tool==='patch',piece=isPatch?{cells:[[0,0]],name:'Repair patch'}:shapeFor();if(!piece||isPatch&&s.patches<=0){toast('No more pieces of that type.',true);beep('error');return;}if(!canBuild(piece.cells,x,y)){toast('Needs empty land; rotate or choose another square.',true);beep('error');return;}for(const [dx,dy] of piece.cells)s.walls.add(K(x+dx,y+dy));if(isPatch)s.patches--;else{s.queue.shift();s.rotation=0;}recalculate();beep('build');if(s.sealed)toast('Keep sealed. Nice placement!');else toast('Keep exposed: rebuild the broken enclosure.',true);updateHud();}
+function canPlaceCannon(x,y){
+ if(!s || !land(x,y) || s.walls.has(K(x,y)))return false;
+ if(!s.fullControl && !s.inside.has(K(x,y)))return false;
+ if(keep.x===x&&keep.y===y || outposts.some(o=>o.x===x&&o.y===y))return false;
+ return !s.cannons.some(c=>c.x===x&&c.y===y);
+}
+function placeCannon(x,y){
+ if(!s || !(s.phase==='cannons'||s.fullControl&&(s.phase==='build'||s.phase==='battle')))return;
+ if(!s.fullControl && s.cannonPlaces<=0){toast('No new cannons left. Begin the battle.');return;}
+ if(!canPlaceCannon(x,y)){
+    toast(s.fullControl?'Place cannons on empty land (not on walls, buildings, or other cannons).':'Cannons must be on free land inside sealed walls.',true);
+    beep('error');return;
+ }
+ s.cannons.push({x,y,cd:0,angle:-Math.PI/2});
+ if(!s.fullControl)s.cannonPlaces--;
+ beep('build');
+ if(!s.fullControl||s.cannons.length%10===0)log('Cannons ready: '+s.cannons.length+'.','good');
+ updateHud();
+}
+function endBuild(){
+ if(!s||s.phase!=='build')return;
+ recalculate();s.phase='cannons';
+ s.cannonPlaces=s.fullControl?Infinity:Math.min(2+s.outposts,Math.max(0,8-s.cannons.length));
+ s.time=s.total=s.fullControl?Infinity:MODES[selected].arm;s.tool='cannon';
+ if(!s.sealed){toast('Warning: your keep is unsealed!',true);log('The keep has a gap in its defenses.','bad');}
+ else toast(s.fullControl?'Cannon inventory is unlimited. Place as many as you like.':'Build complete. Place cannons within enclosed land.');
+ beep('next');updateHud();
+}
+function startBattle(){
+ if(!s||s.phase!=='cannons')return;
+ s.phase='battle';s.tool='fire';s.elapsed=0;shotThrottle=0;
+ s.time=s.total=s.fullControl?Infinity:MODES[selected].battle;
+ s.spawnLimit=s.fullControl?s.fleetSize:3+s.wave*2;
+ s.spawned=0;s.spawnIn=s.fullControl?1.05:5;s.sunk=0;
+ s.ships=[];s.shots=[];
+ const initial=s.fullControl?Math.min(s.spawnLimit,3):Math.min(s.spawnLimit,2);
+ for(let i=0;i<initial;i++)spawnShip();
+ toast(s.fullControl?'Fleet of '+s.spawnLimit+' ships inbound. Battle lasts until you sink them all.':'Enemy fleet sighted! Click or hold on the water to fire.');
+ log('Wave '+s.wave+': '+s.spawnLimit+' ships to face.');
+ beep('next');updateHud();
+}
+function spawnShip(){if(!s||s.spawned>=s.spawnLimit)return;const side=Math.random()<.5?-1:1,kind=(s.wave>2&&Math.random()<.24)?'armored':(Math.random()<.25?'raider':'frigate'),hp=kind==='armored'?3:kind==='frigate'?2:1;
+s.ships.push({id:s.uid++,side,kind,hp,maxHp:hp,x:side<0?rand(64,106):rand(797,834),y:rand(77,523),dy:(Math.random()<.5?-1:1)*rand(16,30)*(kind==='raider'?1.3:.85),fireIn:rand(5,8)/MODES[selected].enemyRate,wobble:rand(0,6)});s.spawned++;}
+function shoot(tx,ty){
+ if(!s||s.phase!=='battle'||modal || (s.fullControl&&s.tool==='cannon'))return false;
+ if(s.fullControl&&shotThrottle>0)return false;
+ const available=s.cannons.filter(c=>c.cd<=0);
+ if(!available.length)return false;
+ available.sort((a,b)=>Math.hypot((a.x+.5)*T-tx,(a.y+.5)*T-ty)-Math.hypot((b.x+.5)*T-tx,(b.y+.5)*T-ty));
+ const c=available[0],sx=(c.x+.5)*T,sy=(c.y+.5)*T;
+ c.cd=.65;c.angle=Math.atan2(ty-sy,tx-sx);
+ const dist=Math.hypot(tx-sx,ty-sy);
+ s.shots.push({owner:'player',sx,sy,tx,ty,t:0,dur:clamp(dist/610,.38,.9)});
+ if(s.fullControl)shotThrottle=.085;
+ beep('fire');return true;
+}
+function shipAttack(sh){if(!s.walls.size)return;const tiles=[...s.walls];let target=tiles[Math.floor(Math.random()*tiles.length)];if(Math.random()<.25){const near=tiles.filter(k=>{const [x]=k.split(',').map(Number);return sh.side<0?x<=14:x>=14;});if(near.length)target=near[Math.floor(Math.random()*near.length)];}const [x,y]=target.split(',').map(Number);s.shots.push({owner:'enemy',sx:sh.x,sy:sh.y,tx:(x+.5)*T,ty:(y+.5)*T,target,t:0,dur:rand(.95,1.42)});}
+function boom(x,y,color='#f1c27c',size=1){explosionEvents.push({x,y,t:0,life:.46,size,color});if(!motionOK)return;for(let n=0;n<11;n++){let a=rand(0,Math.PI*2),v=rand(28,110)*size;sparks.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:rand(.25,.6),t:0,color});}}
+function resolveShot(sh){if(sh.owner==='enemy'){if(s.walls.delete(sh.target)){s.breached++;recalculate();log('Enemy fire broke a section of wall.','bad');if(!s.sealed&&s.breached===1)toast('The keep is breached! Repair it next build phase.',true);}boom(sh.tx,sh.ty,'#ff967b',.92);beep('boom');}else{boom(sh.tx,sh.ty,'#ffca75',.82);for(let i=s.ships.length-1;i>=0;i--){const enemy=s.ships[i];if(Math.hypot(enemy.x-sh.tx,enemy.y-sh.ty)<29){enemy.hp--;boom(enemy.x,enemy.y,'#ff9c6a',1.2);if(enemy.hp<=0){s.ships.splice(i,1);s.sunk++;s.score+=enemy.kind==='armored'?250:enemy.kind==='frigate'?170:120;log('Enemy '+enemy.kind+' sunk!','good');beep('sunk');updateBest();}break;}}}}
+function tickBattle(dt){
+ s.spawnIn-=dt;
+ if(s.fullControl)shotThrottle=Math.max(0,shotThrottle-dt);
+ const maxActive=s.fullControl?Math.min(15,Math.max(3,Math.ceil(s.spawnLimit/7))):s.wave>=4?4:3;
+ if(s.spawnIn<=0&&s.spawned<s.spawnLimit&&s.ships.length<maxActive){
+    spawnShip();s.spawnIn=s.fullControl?rand(.7,1.2):rand(3.7,5.8);
+ }
+ for(const c of s.cannons)c.cd=Math.max(0,c.cd-dt);
+ for(const sh of s.ships){
+    sh.y+=sh.dy*dt;
+    if(sh.y<62){sh.y=62;sh.dy=Math.abs(sh.dy);}
+    if(sh.y>540){sh.y=540;sh.dy=-Math.abs(sh.dy);}
+    sh.wobble+=dt;sh.fireIn-=dt;
+    if(sh.fireIn<=0){shipAttack(sh);sh.fireIn=rand(5.9,8.5)/MODES[selected].enemyRate;}
+ }
+ for(let i=s.shots.length-1;i>=0;i--){let p=s.shots[i];p.t+=dt;if(p.t>=p.dur){resolveShot(p);s.shots.splice(i,1);}}
+ if((held||heldButton)&&!modal &&s.tool!=='cannon')shoot(hover.px,hover.py);
+ if(s.spawned===s.spawnLimit&&s.ships.length===0&&s.shots.every(p=>p.owner!=='player'))finishBattle();
+}
+function finishBattle(retreated=false){
+ if(!s||s.phase!=='battle')return;
+ recalculate();
+ const lost=!s.sealed||retreated;
+ const bonus=!retreated&&s.sealed?100+Math.min(450,s.protected*6)+s.outposts*200:0;
+ s.score+=bonus;
+ if(lost){s.lives--;log(retreated?'Your fleet engagement was abandoned. One life lost.':'The keep was not fully enclosed. One life lost.','bad');}
+ else log('Keep held. Territory bonus +'+bonus+'.','good');
+ updateBest();
+ s.roundResult={lost,retreated,bonus,sunk:s.sunk,total:s.spawnLimit,protection:s.sealed};
+ s.phase='between';s.shots=[];held=heldButton=false;
+ updateHud();
+ if(s.lives<=0)showOverlay('gameover');
+ else if(!s.fullControl&&s.wave>=MODES[selected].waves)showOverlay('victory');
+ else showOverlay('round');
+}
+function nextWave(){
+ if(!s||s.phase!=='between')return;
+ s.wave++;s.phase='build';s.queue=buildQueue(MODES[selected].sections);
+ s.patches=MODES[selected].patches;s.tool='wall';s.rotation=0;s.breached=0;
+ s.time=s.total=s.fullControl?Infinity:MODES[selected].build;
+ recalculate();hideOverlay();syncFleetUI();
+ toast('Wave '+s.wave+'. Repair your breaches and set your next fleet size.');
+ log('Repair phase: new wall pieces have arrived.');updateHud();
+}
+function phaseAction(){
+ if(!s||modal)return;
+ if(s.phase==='build')endBuild();
+ else if(s.phase==='cannons')startBattle();
+ else if(s.phase==='battle'&&s.fullControl)showOverlay('retreat');
+}
+function rotate(){if(!s||s.phase!=='build'||s.tool!=='wall'||modal)return;s.rotation=(s.rotation+1)%4;beep('build');updateHud();}
+function setTool(tool){
+ if(!s||s.phase!=='build'||modal)return;
+ s.tool=tool;updateHud();
+}
+function toggleCannonTool(){
+ if(!s||!s.fullControl||modal||s.phase==='between')return;
+ if(s.phase==='battle')s.tool=s.tool==='cannon'?'fire':'cannon';
+ else s.tool='cannon';
+ held=heldButton=false;
+ toast(s.tool==='cannon'?'Cannon tool active. Place guns on open land.':'Firing mode active. Aim at enemy ships.');
+ updateHud();
+}
+function setFleetSize(v){
+ if(!s||!s.fullControl||!['build','cannons'].includes(s.phase))return;
+ if(v===''||!Number.isFinite(Number(v)))return;
+ s.fleetSize=fleetClamp(v);selectedFleet=s.fleetSize;
+ syncFleetUI();updateHud();
+}
+function syncFleetUI(){
+ if(!s||!s.fullControl)return;
+ $('fleetValue').textContent=s.fleetSize.toLocaleString();
+ if(document.activeElement!==$('fleetInput'))$('fleetInput').value=String(s.fleetSize);
+ $('fleetRange').value=String(s.fleetSize);
+ const canEdit=s.phase==='build'||s.phase==='cannons';
+ for(const id of ['fleetInput','fleetRange','fleetMinus','fleetPlus'])$(id).disabled=!canEdit;
+ $('fleetNote').textContent=canEdit?'1-200 ships. Set the fleet size before you begin battle.':'Fleet locked: '+s.sunk+' sunk, '+s.spawned+' launched of '+s.spawnLimit+'.';
+ $('fillCannons').disabled=s.phase==='between';
+ $('clearCannons').disabled=s.phase==='between';
+}
+function fillCannons(){
+ if(!s||!s.fullControl||modal||s.phase==='between')return;
+ let added=0;
+ for(let y=1;y<R-1;y++)for(let x=0;x<C;x++)if(canPlaceCannon(x,y)){
+    s.cannons.push({x,y,cd:0,angle:-Math.PI/2});added++;
+ }
+ if(added){beep('build');log('Full Control deployed '+added+' extra cannons.','good');}
+ toast(added?'Deployed '+added+' cannons across open land.':'Every available land tile already has a cannon.');
+ updateHud();
+}
+function clearCannons(){
+ if(!s||!s.fullControl||modal||s.phase==='between')return;
+ const removed=s.cannons.length;
+ s.cannons=[];
+ toast('Removed '+removed+' cannons. You can deploy new ones anytime.');
+ log('Full Control cleared the cannon positions.');updateHud();
+}
+function updateHud(){
+ if(!s)return;
+ const cfg=MODES[selected],full=s.fullControl;
+ const label=s.phase==='build'?'BUILD THE WALLS':s.phase==='cannons'?'PLACE YOUR CANNONS':s.phase==='battle'?'DEFEND THE COAST':'WAVE COMPLETE';
+ $('waveStat').textContent=full?s.wave+' / '+String.fromCharCode(8734):s.wave+' / '+cfg.waves;
+ $('livesStat').textContent='\u2665 '.repeat(s.lives).trim()||'0';
+ $('scoreStat').textContent=s.score.toLocaleString();$('bestStat').textContent=best.toLocaleString();
+ $('phaseName').textContent=label;
+ $('phaseDetails').textContent=s.phase==='build'?(full?'Untimed build. Set your enemy fleet and add cannons freely.':'Place wall shapes or repair broken tiles.'):
+    s.phase==='cannons'?(full?'Unlimited cannon placement. '+s.fleetSize+' ships selected.':'Add cannons inside enclosed territory.'):
+    s.phase==='battle'?(full?'Sink all '+s.spawnLimit+' ships. '+(s.spawnLimit-s.sunk)+' remaining.':'Target enemy ships before they break your walls.'):'Your next orders are ready.';
+ const free=full&&(s.phase==='build'||s.phase==='cannons');
+ const elapsed=full&&s.phase==='battle';
+ $('timeStat').textContent=s.phase==='between'?'--':free?'FREE':elapsed?Math.floor(s.elapsed/60)+':'+String(Math.floor(s.elapsed%60)).padStart(2,'0'):Math.ceil(s.time);
+ $('timeStat').classList.toggle('urgent',!full&&s.time<9&&s.phase!=='between');
+ $('timeBar').style.width=(s.phase==='between'||full?100:clamp(s.time/s.total*100,0,100))+'%';
+ $('keepStatus').textContent=s.sealed?'SEALED':'BREACHED';$('keepStatus').className=s.sealed?'ok':'bad';
+ $('piecesStat').textContent=s.queue.length;$('patchesStat').textContent=s.patches;
+ $('cannonsStat').textContent=s.cannons.length+(s.phase==='cannons'?(full?' (unlimited)':' (+'+s.cannonPlaces+' available)'):'');
+ $('outpostsStat').textContent=s.outposts+' / 2';
+ $('shipsStat').textContent=s.phase==='battle'?Math.max(0,s.spawnLimit-s.sunk):full?s.fleetSize:'--';
+ $('wallBtn').disabled=s.phase!=='build'||!s.queue.length;
+ $('patchBtn').disabled=s.phase!=='build'||s.patches<=0;
+ $('cannonBtn').hidden=!full;
+ $('cannonBtn').disabled=!full||s.phase==='between';
+ $('cannonBtn').classList.toggle('active',full&&s.tool==='cannon');
+ $('cannonBtn').textContent=s.phase==='battle'&&s.tool==='cannon'?'Return to fire (C)':'Place cannon (C)';
+ $('rotateBtn').disabled=s.phase!=='build'||s.tool!=='wall'||!s.queue.length;
+ $('fireBtn').disabled=s.phase!=='battle';
+ $('fireBtn').classList.toggle('active',s.phase==='battle'&&s.tool==='fire');
+ $('wallBtn').classList.toggle('active',s.phase==='build'&&s.tool==='wall');
+ $('patchBtn').classList.toggle('active',s.phase==='build'&&s.tool==='patch');
+ $('finishBtn').disabled=s.phase==='between'||s.phase==='battle'&&!full;
+ $('finishBtn').textContent=s.phase==='build'?'Finish building':s.phase==='cannons'?'Begin battle':s.phase==='battle'?'Retreat (lose 1 life)':'Next wave';
+ $('phaseCopy').textContent=s.phase==='build'?(full?'Build walls or switch to the cannon tool. There is no build timer.':'Use wall shapes to repair and enlarge your territory. Choose Patch tile for single-square gaps.'):
+    s.phase==='cannons'?(full?'Place as many cannons as you like. Any empty land tile works, even outside the walls.':'Click an open tile inside sealed walls to position a new cannon.'):
+    s.phase==='battle'?(full?'Click or hold on the water to fire. Switch to Place cannon (C) to deploy more during battle.':'Click or hold on the water to launch shells. Aim ahead of sailing ships.'):'Well fought. Review this wave\'s results.';
+ $('footerHint').textContent=s.phase==='build'?(full?'CLICK build  |  C cannons  |  R rotate':'CLICK place  |  R rotate  |  patch small gaps'):
+    s.phase==='cannons'?(full?'CLICK any empty land square for unlimited cannons':'CLICK a green enclosed square to place a cannon'):
+    s.phase==='battle'?(full?s.tool==='cannon'?'CLICK land to deploy cannons  |  C return to fire':'CLICK/HOLD fire  |  C add cannons':'CLICK or HOLD to fire  |  move cursor to aim'):'Wave complete';
+ const p=shapeFor();
+ $('pieceName').textContent=s.tool==='cannon'&&full?'Unlimited cannons':s.phase==='battle'?'Cannon ready':s.phase==='cannons'?'Enclosed territory':s.tool==='patch'?'Single repair tile':p?p.name:'No pieces left';
+ $('pieceDetail').textContent=s.tool==='cannon'?(full?'On any clear land tile':'Must be within walls'):s.phase==='battle'?'Reloads automatically':s.phase==='cannons'?'Must be inside walls':s.tool==='patch'?s.patches+' patches remaining':s.queue.length+' pieces remaining';
+ if(full)syncFleetUI();
+ drawPiece();
+}
+function drawPiece(){pg.clearRect(0,0,preview.width,preview.height);pg.fillStyle='#0d2635';pg.fillRect(0,0,preview.width,preview.height);if(!s)return;let cells=s.phase==='build'?(s.tool==='patch'?[[0,0]]:shapeFor()?.cells):null;if(!cells){pg.fillStyle='#608494';pg.font='bold 12px system-ui';pg.textAlign='center';pg.fillText(s.phase==='cannons'?'CANNON':s.phase==='battle'?'FIRE':'READY',58,49);return;}let mx=Math.max(...cells.map(c=>c[0]))+1,my=Math.max(...cells.map(c=>c[1]))+1,z=Math.min(23,78/mx,72/my),ox=(116-mx*z)/2,oy=(94-my*z)/2;for(const [x,y] of cells){let px=ox+x*z,py=oy+y*z;pg.fillStyle='#93a4a9';pg.fillRect(px+1,py+1,z-2,z-2);pg.fillStyle='#bdcbcb';pg.fillRect(px+3,py+2,z-6,(z-4)*.29);pg.strokeStyle='#334857';pg.strokeRect(px+1,py+1,z-2,z-2);}}
+function overlayHtml(kind){
+ const intro=kind==='intro',help=kind==='help',paused=kind==='pause',round=kind==='round',over=kind==='gameover',won=kind==='victory',restart=kind==='restart',retreat=kind==='retreat';
+ let title='',description='',inner='',primary='',secondary='';
+ if(intro){
+    title='Fortify. Fire. Survive.';
+    description='Build a stronghold, install cannons and repel enemy fleets. Try the new Full Control sandbox to command your own battle.';
+    inner='<div class="modal-steps"><div><b>01 BUILD</b><span>Rotate and connect walls.</span></div><div><b>02 ARM</b><span>Place cannons in the fortress.</span></div><div><b>03 DEFEND</b><span>Fire on attacking ships.</span></div></div>'+
+        '<div class="mode-setup"><label for="gameMode">Game mode</label><select id="gameMode"><option value="standard">Standard campaign</option><option value="full">Full Control - unlimited cannons</option></select>'+
+        '<p class="mode-hint" id="modeHint">Standard battles use timed phases and limited cannon reinforcements.</p>'+
+        '<div id="customIntro" class="custom-intro" hidden><label for="startFleet">Ships to face each battle (1-200)</label><input id="startFleet" type="number" inputmode="numeric" min="1" max="200" step="1" value="'+selectedFleet+'">'+
+        '<p class="mode-hint">Untimed building and placement. Deploy as many cannons as you want, even during combat. Adjust the fleet before every wave.</p></div></div>'+
+        '<label for="difficulty">Difficulty (enemy strength)</label><div><select class="difficulty" id="difficulty"><option value="relaxed">Relaxed</option><option value="classic">Classic</option><option value="hard">Admiral</option></select></div>';
+    primary='START GAME';secondary='How to play';
+ }else if(help){
+    title='How to play';description='Protect your golden keep with walls. A breached keep costs a life at the end of each battle.';
+    inner='<ol class="modal-list"><li><b>Build:</b> Click or tap empty land to place walls. Press R to rotate. Choose Patch tile to repair one square.</li>'+ 
+        '<li><b>Arm:</b> Place cannons. Standard mode limits additions to enclosed territory.</li>'+
+        '<li><b>Full Control:</b> Unlimited cannons on any open land tile. Set 1-200 attacking ships before each wave. Build and cannon phases have no timer, and battles continue until the fleet is eliminated.</li>'+ 
+        '<li><b>Combat:</b> Click or hold over ships to shoot. Lead moving targets. Full Control lets you press C to place more cannons during combat; press C again to return to firing.</li>'+ 
+        '<li><b>Keyboard:</b> Arrow keys move cursor, Enter/Space acts, R rotates, C toggles cannon tool in Full Control, P pauses, M toggles sound.</li></ol>';
+    primary='BACK TO GAME';
+ }else if(paused){title='Game paused';description='Your fortress is safe while the battle is paused.';primary='RESUME GAME';secondary='How to play';
+ }else if(round){
+    const v=s.roundResult;title=v.retreated?'You retreated':v.lost?'The walls were breached':'Your defenses held!';
+    description=v.retreated?'The fleet engagement was abandoned, costing one life. You can change the next fleet size before battling again.':v.lost?'Your keep was exposed when the wave ended, costing one life. Repair the broken walls before the next battle.':'Your keep survived intact. Rebuild stronger walls before the next attack.';
+    inner='<div class="modal-steps"><div><b>SHIPS SUNK</b><span>'+v.sunk+' of '+v.total+'</span></div><div><b>TERRITORY BONUS</b><span>+'+v.bonus+' points</span></div><div><b>LIVES LEFT</b><span>'+s.lives+'</span></div></div>';
+    primary='NEXT WAVE';
+ }else if(over){title='Fortress fallen';description='Your keep could not withstand the enemy fleet. The coast will remember your defense.';inner='<p>Final score: <b>'+s.score.toLocaleString()+'</b> &nbsp; | &nbsp; Waves reached: <b>'+s.wave+'</b></p>';primary='TRY AGAIN';
+ }else if(won){title='The coast is yours!';description='You survived every enemy wave. The fortress still stands.';inner='<p>Final score: <b>'+s.score.toLocaleString()+'</b> &nbsp; | &nbsp; Best: <b>'+best.toLocaleString()+'</b></p>';primary='PLAY AGAIN';
+ }else if(restart){title='Start a new game?';description='Current progress will be lost. Your high score will be kept.';primary='RESTART GAME';secondary='KEEP PLAYING';
+ }else if(retreat){title='Retreat from battle?';description='Ending the battle early costs one life. Remaining enemy ships will escape.';primary='RETREAT NOW';secondary='KEEP FIGHTING';
+ }
+ return '<div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modal-mark" aria-hidden="true">'+(won?'\u2605':over?'\u2694':'\u265c')+'</div><h2 id="modalTitle">'+title+'</h2><p>'+description+'</p>'+inner+'<button class="big-button" type="button" id="modalPrimary">'+primary+'</button>'+(secondary?'<button class="ghost-button" type="button" id="modalSecondary">'+secondary+'</button>':'')+'<p class="modal-note">Runs entirely offline. No account required.</p></div>';
+}
+function showOverlay(kind){
+ if(kind==='help'){helpReturn=modal||'playing';if(s)s.paused=true;}
+ modal=kind;
+ const el=$('overlay');el.hidden=false;el.parentElement.classList.add('modal-open');
+ el.innerHTML=overlayHtml(kind);
+ if(kind==='intro'){
+    $('difficulty').value=selected;
+    $('difficulty').addEventListener('change',e=>{selected=e.target.value;});
+    const style=$('gameMode');style.value=selectedMode;
+    const updateSelection=()=>{
+        selectedMode=style.value;
+        $('customIntro').hidden=selectedMode!=='full';
+        $('modeHint').textContent=selectedMode==='full'?'Unlimited cannon inventory, player-selected fleet size and untimed phases. Play as many waves as you want.':'Standard campaign: timed phases, limited cannon additions and a fixed wave count.';
+    };
+    style.addEventListener('change',updateSelection);updateSelection();
+    $('startFleet').value=String(selectedFleet);
+    $('startFleet').addEventListener('change',e=>{selectedFleet=fleetClamp(e.target.value);e.target.value=String(selectedFleet);});
+ }
+ el.querySelector('#modalPrimary').addEventListener('click',()=>modalPrimary(kind));
+ const sec=el.querySelector('#modalSecondary');
+ if(sec)sec.addEventListener('click',()=>{
+    if(kind==='intro'||kind==='pause')showOverlay('help');
+    else if(kind==='restart'||kind==='retreat')closeOverlay();
+ });
+ el.querySelector('#modalPrimary').focus({preventScroll:true});
+}
+function hideOverlay(){modal=null;$('overlay').hidden=true;$('overlay').parentElement.classList.remove('modal-open');$('overlay').innerHTML='';if(s)s.paused=false;}
+function closeOverlay(){hideOverlay();}
+function modalPrimary(kind){
+ if(kind==='restart'){showOverlay('intro');return;}
+ if(kind==='intro'||kind==='gameover'||kind==='victory'){
+    if(kind==='intro'&&selectedMode==='full')selectedFleet=fleetClamp($('startFleet').value);
+    createState();hideOverlay();canvas.focus({preventScroll:true});
+ }else if(kind==='help'){
+    if(helpReturn==='intro')showOverlay('intro');
+    else if(helpReturn==='pause')showOverlay('pause');
+    else hideOverlay();
+ }else if(kind==='pause')hideOverlay();
+ else if(kind==='round'){nextWave();canvas.focus({preventScroll:true});}
+ else if(kind==='retreat'){hideOverlay();finishBattle(true);}
+}
+function togglePause(){if(!s||s.phase==='between')return;if(modal==='pause'){hideOverlay();return;}if(modal)return;s.paused=true;held=heldButton=false;showOverlay('pause');}
+function restart(){if(modal==='intro'||!s){showOverlay('intro');return;}if(modal)return;s.paused=true;showOverlay('restart');}
+function act(x,y,px,py){
+ if(modal||!s)return;
+ if(s.fullControl&&s.tool==='cannon'){placeCannon(x,y);return;}
+ if(s.phase==='build')placeWall(x,y);
+ else if(s.phase==='cannons')placeCannon(x,y);
+ else if(s.phase==='battle')shoot(px,py);
+}
+function eventPos(e){const rect=canvas.getBoundingClientRect(),px=clamp((e.clientX-rect.left)/rect.width*W,0,W-.01),py=clamp((e.clientY-rect.top)/rect.height*H,0,H-.01);return {px,py,x:Math.floor(px/T),y:Math.floor(py/T)};}
+canvas.addEventListener('pointermove',e=>{hover=eventPos(e);});
+canvas.addEventListener('pointerdown',e=>{
+ if(modal||!s||e.button>0)return;
+ e.preventDefault();canvas.focus({preventScroll:true});hover=eventPos(e);
+ if(s.phase==='battle'&&s.tool!=='cannon'){held=true;shoot(hover.px,hover.py);}
+ else act(hover.x,hover.y,hover.px,hover.py);
+ try{canvas.setPointerCapture(e.pointerId);}catch{}
+});
+function release(){held=false;heldButton=false;}
+canvas.addEventListener('pointerup',release);canvas.addEventListener('pointercancel',release);window.addEventListener('pointerup',release);canvas.addEventListener('contextmenu',e=>{e.preventDefault();rotate();});
+$('wallBtn').addEventListener('click',()=>setTool('wall'));
+$('patchBtn').addEventListener('click',()=>setTool('patch'));
+$('cannonBtn').addEventListener('click',toggleCannonTool);
+$('rotateBtn').addEventListener('click',rotate);
+$('finishBtn').addEventListener('click',phaseAction);
+$('fleetInput').addEventListener('input',e=>{if(e.target.value!=='')setFleetSize(e.target.value);});
+$('fleetInput').addEventListener('change',e=>{if(e.target.value!=='')setFleetSize(e.target.value);e.target.value=String(s.fleetSize);});
+$('fleetRange').addEventListener('input',e=>setFleetSize(e.target.value));
+$('fleetMinus').addEventListener('click',()=>setFleetSize(s.fleetSize-1));
+$('fleetPlus').addEventListener('click',()=>setFleetSize(s.fleetSize+1));
+$('fillCannons').addEventListener('click',fillCannons);
+$('clearCannons').addEventListener('click',clearCannons);
+const fireBtn=$('fireBtn');
+fireBtn.addEventListener('pointerdown',e=>{
+ if(!s||s.phase!=='battle'||modal)return;
+ e.preventDefault();
+ if(s.fullControl){s.tool='fire';updateHud();}
+ heldButton=true;shoot(hover.px,hover.py);
+ try{fireBtn.setPointerCapture(e.pointerId);}catch{}
+});
+fireBtn.addEventListener('pointerup',()=>heldButton=false);
+fireBtn.addEventListener('pointercancel',()=>heldButton=false);
+fireBtn.addEventListener('click',()=>{
+ if(s&&s.phase==='battle'&&!modal){if(s.fullControl){s.tool='fire';updateHud();}shoot(hover.px,hover.py);}
+});
+$('helpBtn').addEventListener('click',()=>{if(modal==='help')return;showOverlay('help');});$('soundBtn').addEventListener('click',()=>{muted=!muted;$('soundBtn').textContent='Sound: '+(muted?'Off':'On');if(!muted)beep('build');});$('pauseBtn').addEventListener('click',togglePause);$('newBtn').addEventListener('click',restart);
+window.addEventListener('keydown',e=>{
+ const tag=(e.target&&e.target.tagName)||'';
+ if(tag==='SELECT'||tag==='INPUT')return;
+ if(e.key.toLowerCase()==='m'){
+    muted=!muted;$('soundBtn').textContent='Sound: '+(muted?'Off':'On');return;
+ }
+ if(modal){
+    if(e.key==='Escape'&&(modal==='help'||modal==='pause'||modal==='restart'||modal==='retreat')){
+        e.preventDefault();if(modal==='help')modalPrimary('help');else hideOverlay();
+    }else if(e.key==='Enter'&&e.target===canvas){e.preventDefault();const b=$('modalPrimary');if(b)b.click();}
+    return;
+ }
+ if(!s)return;
+ if(e.key.toLowerCase()==='p'){togglePause();e.preventDefault();return;}
+ if(e.key.toLowerCase()==='r'){rotate();e.preventDefault();return;}
+ if(e.key.toLowerCase()==='c'&&s.fullControl){toggleCannonTool();e.preventDefault();return;}
+ if(e.key.toLowerCase()==='e'&&s.phase==='build'){setTool(s.tool==='wall'?'patch':'wall');e.preventDefault();return;}
+ const movement={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]};
+ if(movement[e.key]){const [dx,dy]=movement[e.key];hover.x=clamp(hover.x+dx,0,C-1);hover.y=clamp(hover.y+dy,0,R-1);hover.px=(hover.x+.5)*T;hover.py=(hover.y+.5)*T;e.preventDefault();}
+ else if(e.code==='Space'||e.key==='Enter'){
+    if(e.target&&e.target.tagName==='BUTTON')return;
+    act(hover.x,hover.y,hover.px,hover.py);e.preventDefault();
+ }
+});
+function tick(dt){
+ if(s&&!modal&&!s.paused){
+    if(s.fullControl){
+       if(s.phase==='battle'){s.elapsed+=dt;tickBattle(dt);}
+    }else if(s.phase==='build'||s.phase==='cannons'||s.phase==='battle'){
+       s.time-=dt;
+       if(s.phase==='battle')tickBattle(dt);
+       if(s.phase!=='between'&&s.time<=0){
+           s.time=0;
+           if(s.phase==='build')endBuild();else if(s.phase==='cannons')startBattle();else if(s.phase==='battle')finishBattle();
+       }
+    }
+ }
+ for(let i=explosionEvents.length-1;i>=0;i--){explosionEvents[i].t+=dt;if(explosionEvents[i].t>explosionEvents[i].life)explosionEvents.splice(i,1);}
+ for(let i=sparks.length-1;i>=0;i--){let q=sparks[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.vy+=110*dt;q.t+=dt;if(q.t>=q.life)sparks.splice(i,1);}
+ uiTick+=dt;if(uiTick>.14){uiTick=0;updateHud();}
+ if(performance.now()>toastExpire&&!$('toast').hidden)$('toast').hidden=true;
+}
+function tile(x,y){return [x*T,y*T];}
+function drawBackground(time){g.fillStyle='#163a4c';g.fillRect(0,0,W,H);for(let y=0;y<R;y++)for(let x=0;x<C;x++){const px=x*T,py=y*T,noise=seedHash(x,y);if(land(x,y)){g.fillStyle=noise>.7?'#54785d':noise>.35?'#4c7159':'#486a55';g.fillRect(px,py,T+1,T+1);if(noise>.87){g.fillStyle='#78977570';g.beginPath();g.ellipse(px+11,py+13,3.4,2,0,0,Math.PI*2);g.fill();}if(noise<.07){g.fillStyle='#335f4f';g.fillRect(px+7,py+9,2,7);g.fillRect(px+11,py+11,1,5);}if(x===leftEdge(y)||x===rightEdge(y)){g.fillStyle='#d9c18b66';g.fillRect(px,py, x===leftEdge(y)?4:T,T);}}else{g.fillStyle=noise>.55?'#1a4558':'#183e51';g.fillRect(px,py,T+1,T+1);if(noise>.32){let wobble=motionOK?Math.sin(time*.0012+noise*9)*2:0;g.strokeStyle='#6daabd35';g.lineWidth=1.2;g.beginPath();g.moveTo(px+5,py+10+wobble);g.quadraticCurveTo(px+11,py+7+wobble,px+18,py+11+wobble);g.stroke();}}}g.strokeStyle='#ffffff0b';g.lineWidth=1;for(let x=1;x<C;x++){g.beginPath();g.moveTo(x*T+.5,0);g.lineTo(x*T+.5,H);g.stroke();}for(let y=1;y<R;y++){g.beginPath();g.moveTo(0,y*T+.5);g.lineTo(W,y*T+.5);g.stroke();}}
+function drawTerritory(){if(!s)return;g.fillStyle='#6fe5b320';for(const k of s.inside){let [x,y]=k.split(',').map(Number);g.fillRect(x*T,y*T,T,T);}if(s.sealed){g.strokeStyle='#9ae8bf5c';g.lineWidth=1;for(const k of s.inside){let [x,y]=k.split(',').map(Number);for(const [dx,dy] of dirs){if(!s.inside.has(K(x+dx,y+dy))&&!s.walls.has(K(x+dx,y+dy))){g.beginPath();let ax=x*T,ay=y*T;if(dx===1){g.moveTo(ax+T,ay);g.lineTo(ax+T,ay+T);}else if(dx===-1){g.moveTo(ax,ay);g.lineTo(ax,ay+T);}else if(dy===1){g.moveTo(ax,ay+T);g.lineTo(ax+T,ay+T);}else{g.moveTo(ax,ay);g.lineTo(ax+T,ay);}g.stroke();}}}}}
+function drawWall(x,y,ghost=false,valid=true){const px=x*T,py=y*T;if(ghost){g.fillStyle=valid?'#88f2b999':'#ff918a99';g.fillRect(px+1,py+1,T-2,T-2);g.strokeStyle=valid?'#d5ffe0':'#ffe1d9';g.lineWidth=1.5;g.strokeRect(px+2,py+2,T-4,T-4);return;}g.fillStyle='#263d42';g.fillRect(px+1,py+2,T-1,T-1);g.fillStyle='#879ba0';g.fillRect(px+2,py+1,T-4,T-4);g.fillStyle='#bdc9c5';g.fillRect(px+3,py+2,T-6,7);g.fillStyle='#61777d';g.fillRect(px+4,py+19,T-8,6);g.strokeStyle='#46616a';g.lineWidth=1;g.strokeRect(px+2.5,py+1.5,T-5,T-5);g.beginPath();g.moveTo(px+15,py+8);g.lineTo(px+15,py+19);g.moveTo(px+4,py+19);g.lineTo(px+T-4,py+19);g.stroke();}
+function drawKeep(){if(!s)return;const x=keep.x*T+T/2,y=keep.y*T+T/2;g.save();g.translate(x,y);g.fillStyle=s.sealed?'#efd099':'#d28a6d';g.fillRect(-12,-9,24,23);g.fillStyle='#a66b46';g.fillRect(-8,-4,16,13);g.fillStyle='#faf0ce';g.fillRect(-14,-14,8,9);g.fillRect(6,-14,8,9);g.fillRect(-7,-16,14,10);g.fillStyle='#273f42';g.fillRect(-2,4,5,10);g.fillStyle='#d7a35f';g.fillRect(-2,-24,2,10);g.beginPath();g.moveTo(0,-24);g.lineTo(12,-21);g.lineTo(0,-18);g.fill();g.restore();}
+function drawOutposts(){for(const o of outposts){let x=o.x*T+T/2,y=o.y*T+T/2;g.save();g.translate(x,y);g.fillStyle=s&&s.inside.has(K(o.x,o.y))?'#f2d48c':'#b2b7a6';g.beginPath();g.arc(0,2,12,0,Math.PI*2);g.fill();g.fillStyle='#425c55';g.fillRect(-4,-5,8,15);g.fillStyle='#efd58d';g.fillRect(-1,-17,2,13);g.beginPath();g.moveTo(1,-17);g.lineTo(11,-13);g.lineTo(1,-9);g.fill();g.restore();}}
+function drawCannon(c){const x=(c.x+.5)*T,y=(c.y+.5)*T;g.save();g.translate(x,y);g.fillStyle='#14313888';g.beginPath();g.ellipse(1,8,13,6,0,0,Math.PI*2);g.fill();g.fillStyle='#d5b982';g.fillRect(-11,-5,22,17);g.fillStyle='#4c5b5b';g.beginPath();g.arc(0,0,10,0,Math.PI*2);g.fill();g.rotate(c.angle);g.fillStyle='#202f39';g.fillRect(0,-4,18,8);g.fillStyle='#99a8a6';g.fillRect(0,-4,16,2);g.fillStyle='#152d35';g.beginPath();g.arc(0,0,5,0,Math.PI*2);g.fill();g.restore();}
+function drawShip(ship){g.save();g.translate(ship.x,ship.y);g.rotate(ship.dy>0?Math.PI/2:-Math.PI/2);g.fillStyle='#0d2e3fa0';g.beginPath();g.ellipse(4,7,22,10,0,0,Math.PI*2);g.fill();g.fillStyle=ship.kind==='armored'?'#5f626c':ship.kind==='raider'?'#914c43':'#764d40';g.beginPath();g.moveTo(-23,0);g.quadraticCurveTo(-12,-12,12,-11);g.lineTo(24,0);g.lineTo(12,11);g.quadraticCurveTo(-11,11,-23,0);g.fill();g.strokeStyle='#e9b685';g.lineWidth=1.3;g.stroke();g.fillStyle='#d9b87d';g.fillRect(-8,-6,20,12);g.fillStyle='#373e40';for(let i=0;i<3;i++){g.beginPath();g.arc(-5+i*7,0,2.5,0,Math.PI*2);g.fill();}if(ship.kind!=='raider'){g.fillStyle='#f3e3ba';g.beginPath();g.moveTo(-3,-2);g.lineTo(-1,-19);g.lineTo(10,-2);g.fill();}g.restore();if(ship.hp<ship.maxHp){g.fillStyle='#352b32';g.fillRect(ship.x-18,ship.y-26,36,4);g.fillStyle='#ed977f';g.fillRect(ship.x-18,ship.y-26,36*ship.hp/ship.maxHp,4);}}
+function drawShots(){if(!s)return;for(const p of s.shots){let v=clamp(p.t/p.dur,0,1),x=p.sx+(p.tx-p.sx)*v,y=p.sy+(p.ty-p.sy)*v-Math.sin(v*Math.PI)*34;g.strokeStyle=p.owner==='enemy'?'#ffae8466':'#f9d88d6b';g.lineWidth=2;g.beginPath();g.moveTo(p.sx,p.sy);g.lineTo(x,y);g.stroke();g.fillStyle=p.owner==='enemy'?'#ff9b79':'#fff2cd';g.beginPath();g.arc(x,y,4+Math.sin(v*Math.PI),0,Math.PI*2);g.fill();}for(const p of explosionEvents){let f=p.t/p.life;g.strokeStyle=p.color;g.globalAlpha=1-f;g.lineWidth=3*(1-f)+1;g.beginPath();g.arc(p.x,p.y,4+(30*p.size)*f,0,Math.PI*2);g.stroke();g.globalAlpha=1;}for(const p of sparks){g.globalAlpha=1-p.t/p.life;g.fillStyle=p.color;g.fillRect(p.x,p.y,3,3);g.globalAlpha=1;}}
+function drawHover(){
+ if(!s||modal||s.paused)return;
+ const {x,y,px,py}=hover;
+ if(s.fullControl&&s.tool==='cannon'||s.phase==='cannons'){
+    const valid=canPlaceCannon(x,y);
+    g.fillStyle=valid?'#8af2bf7a':'#ff9a7e55';g.fillRect(x*T+2,y*T+2,T-4,T-4);
+    g.strokeStyle=valid?'#e4ffdc':'#ffd6ce';g.lineWidth=2;g.strokeRect(x*T+2,y*T+2,T-4,T-4);
+ }else if(s.phase==='build'){
+    let piece=s.tool==='patch'?{cells:[[0,0]]}:shapeFor();if(!piece)return;
+    let valid=canBuild(piece.cells,x,y);
+    for(const [dx,dy]of piece.cells)if(x+dx>=0&&x+dx<C&&y+dy>=0&&y+dy<R)drawWall(x+dx,y+dy,true,valid);
+ }else if(s.phase==='battle'){
+    g.strokeStyle='#f9e9bb';g.lineWidth=1.5;g.beginPath();g.arc(px,py,11,0,Math.PI*2);
+    g.moveTo(px-17,py);g.lineTo(px-5,py);g.moveTo(px+5,py);g.lineTo(px+17,py);
+    g.moveTo(px,py-17);g.lineTo(px,py-5);g.moveTo(px,py+5);g.lineTo(px,py+17);g.stroke();
+ }
+}
+function draw(time){drawBackground(time);if(!s){let w=initialWalls();for(const k of w){let [x,y]=k.split(',').map(Number);drawWall(x,y);}drawOutposts();const temp=s;s={inside:new Set(),sealed:true};drawKeep();drawCannon({x:12,y:10,angle:-1.5});drawCannon({x:14,y:10,angle:-1.5});s=temp;return;}drawTerritory();drawOutposts();for(const k of s.walls){let [x,y]=k.split(',').map(Number);drawWall(x,y);}drawKeep();for(const c of s.cannons)drawCannon(c);for(const ship of s.ships)drawShip(ship);drawShots();drawHover();}
+function frame(now){let dt=clamp((now-lastFrame)/1000,0,.05);lastFrame=now;tick(dt);draw(now);requestAnimationFrame(frame);}
+// Test-only readouts help verify that the standalone file actually plays.
+window.__ftStatus=()=>({phase:s?.phase||'menu',wave:s?.wave||0,lives:s?.lives||0,score:s?.score||0,seal:!!s?.sealed,remainingPieces:s?.queue.length||0,cannons:s?.cannons.length||0,ships:s?.ships.length||0,spawned:s?.spawned||0,spawnLimit:s?.spawnLimit||0,sunk:s?.sunk||0,fullControl:!!s?.fullControl,fleetSize:s?.fleetSize||0,tool:s?.tool||'',elapsed:s?.elapsed||0,overlay:modal});
+$('bestStat').textContent=best.toLocaleString();showOverlay('intro');requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
