@@ -7,3 +7,4 @@ html=between(html,'let projectHistory,','const assemblyWorkspace=',fs.readFileSy
 for(const [id,file] of [['assemblyWorkspaceSource','assembly-workspace-source.js'],['projectToolsSource','project-tools-source.js'],['blueprintsSource','blueprints-source.js']]){const regex=new RegExp('<script id="'+id+'">[\\s\\S]*?<\\/script>');if(!regex.test(html))throw Error('Missing script '+id);html=html.replace(regex,'<script id="'+id+'">'+fs.readFileSync(file,'utf8').trim()+'\n</script>');}
 html=between(html,'const assemblyWorkspace=','// Small test/debug API:',fs.readFileSync('assembly-workspace-ui.js','utf8'));
 fs.writeFileSync('Parts_Studio_V5_4.html',html);
+require('./build-stl-studio.cjs');
