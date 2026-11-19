@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A simple spreadsheet with editable cells, formulas, and browser-local saving.">
+  <title>Gridline — Spreadsheet</title>
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand"><span class="brand-icon" data-icon="grid"></span><span>Gridline</span></div>
+    <span class="header-divider"></span>
+    <label class="document-name">
+      <input id="workbook-name" aria-label="Workbook name" maxlength="70" spellcheck="false">
+      <span class="rename-icon" data-icon="pencil"></span>
+    </label>
+    <span id="save-state" class="save-state" role="status"><span data-icon="check"></span><span>Saved locally</span></span>
+    <button id="export" class="export-button" aria-label="Export CSV"><span data-icon="download"></span><span>Export CSV</span></button>
+  </header>
+  <main class="workspace">
+    <section class="spreadsheet" aria-label="Spreadsheet">
+      <div class="toolbar" role="toolbar" aria-label="Spreadsheet controls">
+        <div class="tool-group">
+          <button id="undo" class="tool" title="Undo (Ctrl/Cmd+Z)" aria-label="Undo" data-icon="undo"></button>
+          <button id="redo" class="tool" title="Redo (Ctrl/Cmd+Shift+Z)" aria-label="Redo" data-icon="redo"></button>
+        </div>
+        <div class="tool-group">
+          <button id="bold" class="tool text-tool bold" title="Bold (Ctrl/Cmd+B)" aria-label="Bold" aria-pressed="false">B</button>
+          <button id="italic" class="tool text-tool italic" title="Italic (Ctrl/Cmd+I)" aria-label="Italic" aria-pressed="false">I</button>
+        </div>
+        <div class="tool-group">
+          <button id="currency" class="tool text-tool" title="Format as US dollars" aria-label="US dollars" aria-pressed="false">$</button>
+          <button id="percent" class="tool text-tool" title="Format as percent" aria-label="Percent" aria-pressed="false">%</button>
+          <div class="format-control">
+            <select id="number-format" aria-label="Number format" title="Number format">
+              <option value="">Automatic</option>
+              <option value="number">Number</option>
+              <option value="currency">Currency</option>
+              <option value="percent">Percent</option>
+            </select>
+            <span data-icon="chevron"></span>
+          </div>
+        </div>
+      </div>
+      <form class="formula-bar" id="formula-form">
+        <label class="address-field"><input id="address" aria-label="Cell address" spellcheck="false" autocomplete="off" maxlength="5"></label>
+        <span class="formula-icon" aria-hidden="true">ƒx</span>
+        <input id="formula" aria-label="Cell value or formula" placeholder="Enter a value or formula" spellcheck="false" autocomplete="off">
+      </form>
+      <div id="grid-scroll" class="grid-scroll">
+        <table id="grid" role="grid" aria-label="Worksheet grid" tabindex="0"></table>
+      </div>
+      <footer class="sheet-bar">
+        <button id="add-sheet" class="tool add-sheet" data-icon="plus" aria-label="Add sheet" title="Add sheet"></button>
+        <div id="tabs" class="tabs" role="tablist" aria-label="Worksheets"></div>
+        <div id="selection-status" class="selection-status"></div>
+      </footer>
+    </section>
+  </main>
+</body>
+</html>
