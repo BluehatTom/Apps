@@ -1,0 +1,77 @@
+{
+  "app": "Simple CAD Studio",
+  "version": 3,
+  "name": "Threaded Mounting Plate",
+  "units": "mm",
+  "grid": true,
+  "snap": true,
+  "snapSize": 5,
+  "defaultFill": "#bcd4fd",
+  "autoLabel": true,
+  "autoDims": true,
+  "showDims": true,
+  "items": [
+    {
+      "id": "iplate001",
+      "type": "roundRect",
+      "name": "Threaded mounting plate",
+      "x": 20,
+      "y": 20,
+      "w": 100,
+      "h": 65,
+      "rotation": 0,
+      "stroke": "#26446e",
+      "fill": "#bcd4fd",
+      "strokeWidth": 0.6,
+      "label": "M3 mounting plate",
+      "labelSize": 5,
+      "labelColor": "#19345b",
+      "showDimensions": true,
+      "depth": 6,
+      "solid3d": true,
+      "hidden": false,
+      "holes": [
+        {
+          "id": "ihole001",
+          "x": 32,
+          "y": 32,
+          "spec": "M3",
+          "mode": "modeled",
+          "depth": 6,
+          "through": true,
+          "allowance": 0.15
+        },
+        {
+          "id": "ihole002",
+          "x": 108,
+          "y": 32,
+          "spec": "M3",
+          "mode": "modeled",
+          "depth": 4,
+          "through": false,
+          "allowance": 0.15
+        },
+        {
+          "id": "ihole003",
+          "x": 32,
+          "y": 73,
+          "spec": "M3",
+          "mode": "tap",
+          "depth": 6,
+          "through": true,
+          "allowance": 0
+        },
+        {
+          "id": "ihole004",
+          "x": 108,
+          "y": 73,
+          "spec": "M3",
+          "mode": "clearance",
+          "depth": 6,
+          "through": true,
+          "allowance": 0
+        }
+      ]
+    }
+  ]
+}
