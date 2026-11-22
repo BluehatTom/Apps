@@ -1,0 +1,12 @@
+import nodemailer from 'nodemailer';
+import { createApp } from './app.js';
+const env=process.env;
+for(const key of ['ADMIN_EMAIL','PUBLIC_URL','FRONTEND_URL'])if(!env[key])throw Error(`${key} is required. See .env.example.`);
+if(env.NODE_ENV==='production'&&(!env.PUBLIC_URL.startsWith('https://')||!env.FRONTEND_URL.startsWith('https://')))throw Error('Production URLs must use HTTPS.');
+const mailConfigured=!!(env.SMTP_USER&&env.SMTP_PASSWORD);
+const transporter=mailConfigured?nodemailer.createTransport({host:env.SMTP_HOST||'smtp.gmail.com',port:Number(env.SMTP_PORT||465),secure:Number(env.SMTP_PORT||465)===465,requireTLS:true,auth:{user:env.SMTP_USER,pass:env.SMTP_PASSWORD},connectionTimeout:10000,socketTimeout:15000}):null;
+const sendMail=async message=>{if(!transporter)throw Error('Email is not configured.');await transporter.sendMail({...message,from:env.SMTP_FROM||env.SMTP_USER});};
+const app=createApp({config:{databasePath:env.DATABASE_PATH||'./data/atlas.sqlite',adminEmail:env.ADMIN_EMAIL,publicUrl:env.PUBLIC_URL,frontendUrl:env.FRONTEND_URL,sameSite:env.COOKIE_SAMESITE||'Lax',trustProxy:env.TRUST_PROXY==='true',env},sendMail});
+if(!mailConfigured)console.warn('Email is not configured. Registration emails cannot be sent.');
+app.server.listen(Number(env.PORT||4317),env.HOST||'127.0.0.1',()=>console.log(`Atlas server listening on port ${env.PORT||4317}`));
+for(const signal of ['SIGINT','SIGTERM'])process.on(signal,async()=>{await app.close();process.exit(0);});
