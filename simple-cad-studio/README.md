@@ -1,41 +1,58 @@
-# Simple CAD Studio
+# Simple CAD Studio — v1.2
 
-A lightweight, dependency-free CAD web app for making dimensioned 2D drawings and exporting simple extruded 3D solids.
+A lightweight, dependency-free browser CAD tool for dimensioned 2D layouts, basic extruded 3D solids, and modelled metric screw holes. Runs locally in Chrome, Edge or Firefox from **index.html**, with no backend, credentials, internet connection or installation.
 
-## Run
+## Getting started
 
-Open `index.html` in Chrome, Edge, or Firefox. No installation, account, backend, or network connection is required. For GitHub Pages, upload `index.html` to a repository and turn on Pages. Use **Open** to import the included `sample-design.cad.json` example.
+1. Open `index.html` in a browser (or use the GitHub Pages link).
+2. Choose **Rectangle**, **Circle** or another shape and drag to draw it. Select the object and set precise width, height, and extrusion in the Properties panel.
+3. Check **3D solid** to include the selected shape in STL output; uncheck it for a 2D-only shape. Closed shapes default to 3D solids.
+4. Choose **Screw hole** (O), then click *inside* a solid, or select a shape and use **Add screw hole** in Properties. Select the metric size, whether to model an internal thread, the hole depth and coordinates.
+5. Click **3D preview** to inspect, then **Export → STL** for 3D printing, or save a local editable `.cad.json` project with **Save to computer**.
 
-## Features
+You can open the included `sample-design.cad.json` or `sample-threaded-plate.cad.json` with the app's **Open** button.
 
-- Click-and-drag rectangles, rounded rectangles, circles, ellipses, triangles, hexagons, lines, text and point-to-point measurements.
-- Automatic object labels and width/height dimension annotations (click a blue dimension value to edit it in place); editable exact X/Y, width, height, rotation, label, outline, color, and extrusion depth.
-- Inch/mm controls (internally measured in millimeters), grid snapping, zoom/pan, selection handles, object list, show/hide, duplicate, front, undo/redo.
-- Browser autosave plus **Save to computer** for an editable `.cad.json` project file. Use **Open** to import saved projects; the project name determines the downloaded filename. Ctrl+S also saves the file.
-- A prominently displayed **Object background color** picker with ten preset color swatches; customizable default fill color for newly drawn shapes. Colors are retained in project files, SVG/PNG output and 3D previews.
-- True-size SVG and DXF with an outlines-only cutting option; high-resolution PNG; browser Print / Save as PDF; and binary STL extrusion for closed shapes. Includes a simple interactive 3D preview.
+## Version 1.2 additions
 
-## Export notes
+- **Grab and pan:** Dedicated **Hand / Pan** tool (H), grab empty workspace while Select is active, Space + drag, or middle-button drag. Mouse wheel zooms around the pointer. Fit/zoom buttons remain available.
+- **3D solid toggle:** Each closed 2D object can be included or excluded from STL and 3D preview. Extrusion depth is set per solid; SVG and DXF still retain the 2D outlines.
+- **Screw holes:** M2, M2.5, M3, M4, M5, M6, M8, and M10 coarse metric presets. Enter the blind hole/thread depth or check **Through entire solid**, plus exact hole center X/Y and a radial print allowance in millimeters.
+- **Hole options:** **Modeled internal thread** (a true 3D helical cavity cut into the solid), **Tap-drill** (plain smooth hole sized for tapping after printing), or **Clearance** (smooth larger hole for screw passage).
+- **Multiple holes per solid:** Add, edit, or delete holes through the Properties panel. Hole positions follow the parent shape when the shape moves or rotates; project JSON saves all hole specifications.
+- **Exports:** STL now creates continuous solid boundaries with blind and through cylindrical/helically threaded holes. DXF and SVG include hole-opening circles; dimension lines and auto-labels can still be excluded with **Outlines only**.
+- **3D preview:** Shows the same aperture and solid geometry used to build the STL export.
 
-- **SVG:** millimeter page sizing and true-scale editable vector objects. Select **Outlines only** in Export to exclude labels, dimensions, the white page rectangle, and shape fills from cutting. Laser cutter settings should be checked before cutting.
-- **DXF:** geometry and basic text entities, plus dimension marks (unless Outlines only is enabled). DXF geometry is stored in millimeters and Y-axis inverted into the normal CAD coordinate convention. Styling/color may differ across CAD packages.
-- **STL:** shapes become individual closed triangle meshes with per-shape extrusion depths in millimeters. STL format does not embed units. Text, dimensions and open lines do not appear in STL. Shapes are not boolean-unioned or subtracted, and overlapping extrusions can require cleanup in a slicer/modeler.
-- **PNG:** high-resolution white-background screenshot-sized rendering, suitable for sharing rather than dimensioned manufacturing.
-- **PDF:** Print / Save as PDF opens a clean vector drawing in the browser's print window. To preserve scale, check print scaling settings.
-- **Project JSON:** stores all objects and settings for later editing. Click **Save to computer** to download the editable file directly to your computer. Browser autosave is browser-specific and can be erased by clearing browser data; keep downloaded project backups.
+## Metric presets
+
+| Screw | Coarse pitch | Tap-drill diameter | Typical clearance diameter |
+| --- | ---: | ---: | ---: |
+| M2 | 0.40 mm | 1.6 mm | 2.4 mm |
+| M2.5 | 0.45 mm | 2.05 mm | 2.9 mm |
+| M3 | 0.50 mm | 2.5 mm | 3.4 mm |
+| M4 | 0.70 mm | 3.3 mm | 4.5 mm |
+| M5 | 0.80 mm | 4.2 mm | 5.5 mm |
+| M6 | 1.00 mm | 5.0 mm | 6.6 mm |
+| M8 | 1.25 mm | 6.8 mm | 9.0 mm |
+| M10 | 1.50 mm | 8.5 mm | 11.0 mm |
+
+Modeled threads use a helical, 60°-profile-inspired **approximation**, based on the ISO metric coarse nominal diameter and pitch, with selectable print allowance. The contour is **not** a certified ISO thread profile or exact tolerance class. Print test coupons and check screw fit, insertion, strength, orientation and material before a functional or load-bearing assembly. For precise metal tapping, use the **Tap-drill** option and physically tap the printed part. In printed plastic, a threaded insert may be more robust than modeled polymer threads.
+
+## Other existing features
+
+- Rectangles, rounded rectangles, circles, ellipses, triangles, hexagons, lines, text, and point-to-point measurements.
+- Auto labels and editable size annotations; exact X/Y and dimensions; rotation, fill and outline colors, grid snapping, layering, duplicate, undo/redo, show/hide.
+- Millimeters and inches for drawing controls (geometry stored internally and STL written in mm).
+- Save to computer / Open editable JSON projects and local browser autosave.
+- Export accurate-scale **SVG**, **DXF**, binary **STL**, **PNG**, or use browser print / Save as PDF. Cutting-only SVG/DXF outlines omit labels and dimension marks.
 
 ## Shortcuts
 
-V: Select; R: Rectangle; C: Circle; L: Line; T: Text; D: Measure; Del: Delete; Ctrl+Z: Undo; Ctrl+Y: Redo; Ctrl+S: Save project. Mouse wheel: Zoom; Space + drag or middle-button drag: Pan.
+V Select · H Hand / pan · O Screw hole · R Rectangle · C Circle · L Line · T Text · D Measure · Delete remove · Ctrl+Z undo · Ctrl+Y redo · Ctrl+S save project · Wheel zoom · Space + drag pan · Middle-button drag pan.
 
-## Limitations
+## Important limitations
 
-This is a quick-design utility, not a constraint-based CAD kernel. STL extrusion supports positive, simple convex shapes, not holes, boolean subtraction/union, fillets in 3D, or embossed lettering. Validate mechanical part tolerances and preview STL in your slicer before printing.
+This is **not** a full parametric CAD or industrial solid-modeling kernel. It supports holes cut into individual convex solid shapes (including curved silhouettes). Holes must not overlap or cross outside their parent shape. Separate overlapping solids are not boolean-unioned, embossing of text is not supported, and large threaded models can have high STL triangle counts. Check STLs in your slicer and validate print tolerances. The no-dependencies threaded surface uses a tessellated helical approximation, not ISO certified cutting-tool geometry.
 
-## Version 1.1 fixes
+## Testing
 
-- Corrected a filename-sanitization error that prevented downloads for all export formats.
-- All five downloadable formats (SVG, DXF, STL, PNG and project JSON) were tested using browser downloads; STL meshes were checked for watertightness and JSON projects were successfully reopened.
-- Added conspicuous object fill controls, ten preset colors, a new-shape fill picker, and matching colors in the 3D preview.
-- Outlines-only SVG omits fills and the full-page background rectangle, avoiding an unintended cut path.
-- The PDF option opens the browser print dialog, where **Save as PDF** is available depending on the browser and printer setup.
+The v1.2 STL outputs were checked using independent mesh validation. Through and blind helical holes, multiple holes in one solid, and rotated rectangles, rounded rectangles, circles, hexagons, ellipses and triangles exported as watertight, consistently wound positive-volume models in tested cases. Existing JSON, PNG, SVG, DXF and STL export regression tests also passed.
