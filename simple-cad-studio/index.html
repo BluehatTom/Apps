@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simple CAD Studio</title>
+<style>
+  :root{color-scheme:light;--ink:#17243a;--muted:#627088;--line:#e2e7ef;--soft:#f7f9fc;--blue:#245eda;--blue-soft:#eaf1ff;--bg:#eef2f8;--danger:#c33943}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;font:14px/1.45 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink);background:var(--bg)}
+  button,input,select{font:inherit}button{cursor:pointer}
+  button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #a5c5ff;outline-offset:1px}
+  .app{height:100vh;min-height:580px;display:flex;flex-direction:column}
+  .top{height:62px;display:flex;align-items:center;gap:12px;padding:8px 20px;background:#fff;border-bottom:1px solid var(--line)}
+  .logo{display:grid;place-items:center;width:38px;height:38px;border-radius:11px;background:#2159cf;color:#fff;font-size:20px;font-weight:800}
+  .brand{font-size:15px;font-weight:800;letter-spacing:-.3px;white-space:nowrap}
+  .brand small{display:block;font-size:10px;letter-spacing:.7px;color:#69809d;font-weight:700}
+  #projectName{width:min(220px,25vw);padding:9px 10px;border:1px solid transparent;background:#f3f6fb;border-radius:8px;font-weight:650;color:var(--ink)}
+  #projectName:hover,#projectName:focus{border-color:#b5c9ed;background:white}
+  .push{margin-left:auto}.actions,.toolbar-group{display:flex;gap:6px;align-items:center}
+  .btn{border:1px solid var(--line);background:#fff;color:#34445c;padding:8px 11px;border-radius:8px;font-weight:650;white-space:nowrap}
+  .btn:hover{border-color:#9db6e8;background:#f4f8ff}.btn:disabled{opacity:.35;cursor:default}
+  .btn.primary{background:var(--blue);color:#fff;border-color:var(--blue)}.btn.primary:hover{background:#174cc1}
+  .btn.danger{color:var(--danger)}
+  .tools{display:flex;gap:12px;padding:9px 17px;background:#fff;border-bottom:1px solid var(--line);align-items:center;flex-wrap:wrap}
+  .toolbtn{display:flex;gap:7px;align-items:center;border:1px solid transparent;background:transparent;color:#43516b;padding:7px 10px;border-radius:8px;font-weight:650;white-space:nowrap}
+  .toolbtn:hover{background:#f2f5fa}.toolbtn.active{background:var(--blue-soft);color:#1f58cf;border-color:#bdd0ff}
+  .glyph{font-family:Arial,sans-serif;font-size:20px;line-height:1;width:23px;text-align:center}
+  .tooldivider{height:28px;width:1px;background:#dce3ed}
+  .work{display:grid;grid-template-columns:205px minmax(360px,1fr) 270px;flex:1;min-height:0;height:auto}
+  .side{background:#fff;min-height:0;overflow-y:auto}.left{border-right:1px solid var(--line)}.right{border-left:1px solid var(--line)}
+  .section{padding:18px 15px;border-bottom:1px solid var(--line)}.section h2{font-size:12px;letter-spacing:.55px;text-transform:uppercase;margin:0 0 12px;color:#65758e}
+  .hint{font-size:12px;color:var(--muted);line-height:1.6}.hint strong{color:var(--ink)}
+  .field{display:flex;flex-direction:column;gap:5px;margin:0 0 12px}.field label{font-size:12px;color:#596982;font-weight:650}
+  .field input,.field select{width:100%;border:1px solid #d5deea;border-radius:7px;padding:8px;background:#fff;min-width:0}
+  .rowfields{display:grid;grid-template-columns:1fr 1fr;gap:9px}.rowfields .field{min-width:0}
+  .checkrow{display:flex;align-items:center;gap:9px;margin:11px 0;font-size:13px;color:#41516a;cursor:pointer}.checkrow input{accent-color:var(--blue);width:16px;height:16px}
+  .tinybtn{padding:6px 8px;border:1px solid #dce4ef;border-radius:7px;background:white;color:#466082;font-size:12px}
+  .layerrow{display:flex;gap:5px;align-items:center;padding:9px 7px;border:1px solid transparent;border-radius:8px;margin-bottom:4px;cursor:pointer}
+  .layerrow:hover{background:#f4f7fb}.layerrow.selected{background:var(--blue-soft);border-color:#c6d6ff}
+  .layericon{font-size:16px;width:20px;text-align:center;color:#4064a3}.layername{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:650}
+  .eye{border:0;background:transparent;color:#75839a;font-size:13px;padding:2px 4px}.eye:hover{color:#1658d1}
+  .layerempty{color:var(--muted);font-size:12px;line-height:1.6;padding:5px 1px}
+  .stage{position:relative;min-width:0;overflow:hidden;background:#fafcff}
+  #cadSvg{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair;user-select:none}
+  #cadSvg.selecting{cursor:default}#cadSvg.panning{cursor:grabbing}
+  .canvas-chip{position:absolute;left:16px;top:15px;background:#fff;border:1px solid #dfe6ef;border-radius:9px;box-shadow:0 4px 16px #192d4c10;padding:8px 11px;font-size:12px;color:#5c6980;pointer-events:none}
+  .canvas-chip strong{color:#263c62}
+  .zoom-tools{position:absolute;right:17px;bottom:18px;display:flex;gap:3px;background:white;border:1px solid var(--line);box-shadow:0 3px 14px #192d4c15;padding:4px;border-radius:9px}
+  .zoom-tools button{border:0;background:#fff;border-radius:6px;width:32px;height:30px;font-size:18px;color:#3a4b62}.zoom-tools button:hover{background:#eff4fc}
+  .status{display:flex;gap:16px;align-items:center;height:33px;background:#fff;border-top:1px solid var(--line);padding:0 16px;color:#748199;font-size:11px;flex-shrink:0}
+  .status strong{color:#334766}
+  .selection-empty{padding:18px 1px;font-size:13px;color:#6f7d95;line-height:1.7}
+  .swatches{display:flex;gap:8px}.swatches input{height:36px;padding:2px;cursor:pointer}
+  .actionrow{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}
+  .actionrow .btn{font-size:12px;padding:7px 9px}
+  .smallnote{font-size:11px;color:#7b8aa0;margin-top:7px;line-height:1.55}
+  .divider{height:1px;background:var(--line);margin:14px 0}
+  .quick-dim{position:absolute;z-index:20;width:120px;padding:7px 9px;border:2px solid var(--blue);border-radius:8px;background:#fff;box-shadow:0 5px 20px #2441693b;font-weight:700;text-align:center}
+  .quick-dim[hidden]{display:none}
+  .toast{position:absolute;z-index:15;left:50%;bottom:62px;transform:translateX(-50%);padding:9px 16px;background:#162943;color:#fff;border-radius:9px;box-shadow:0 6px 25px #172b4660;font-size:12px;pointer-events:none;max-width:90%;text-align:center}
+  .toast[hidden],.modal[hidden]{display:none}
+  .modal{position:fixed;inset:0;background:#0e23417a;display:flex;align-items:center;justify-content:center;z-index:30;padding:20px}
+  .dialog{width:min(600px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:16px;box-shadow:0 24px 90px #11234355;padding:23px}
+  .dialog-header{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:9px}.dialog h2{font-size:20px;letter-spacing:-.5px;margin:0}.close{border:0;background:#eff3f9;border-radius:8px;padding:8px 11px;font-size:16px}
+  .export-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:20px 0}
+  .export-card{min-height:103px;text-align:left;border:1px solid #d9e3f0;background:#fff;border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:6px}.export-card:hover{border-color:#437de7;background:#f5f8ff}
+  .export-card strong{font-size:15px}.export-card span{font-size:12px;color:#61718b;line-height:1.5}
+  #previewCanvas{width:100%;height:360px;background:#f8fafd;border:1px solid #dbe4f0;border-radius:10px;display:block;touch-action:none}
+  .modal-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+  @media(max-width:1080px){.work{grid-template-columns:170px minmax(300px,1fr) 230px}.brand small{display:none}.tools{gap:5px}.toolbtn{padding:6px 7px}.toolbtn .word{display:none}}
+  @media(max-width:740px){.app{height:auto;min-height:100vh}.top{padding:8px 12px;gap:7px;flex-wrap:wrap;height:auto}.brand{font-size:12px}#projectName{width:130px}.actions .btn:not(.primary){padding:7px 6px}.work{grid-template-columns:minmax(0,1fr);grid-template-rows: minmax(390px,52vh) auto auto;height:auto}.stage{grid-row:1}.left,.right{border:0;border-top:1px solid var(--line)}.side{overflow:visible}.tools{overflow-x:auto;flex-wrap:nowrap;padding:5px}.status{flex-wrap:wrap;height:auto;padding:6px 10px}.right .section{padding:14px}.export-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="logo" aria-hidden="true">▱</div><div class="brand">Simple CAD Studio<small>DRAW · DIMENSION · MAKE</small></div>
+    <input id="projectName" type="text" value="Untitled design" aria-label="Project name" spellcheck="false">
+    <div class="push"></div>
+    <div class="actions">
+      <button class="btn" id="undoBtn" title="Undo (Ctrl+Z)">↶ Undo</button>
+      <button class="btn" id="redoBtn" title="Redo (Ctrl+Y)">↷ Redo</button>
+      <button class="btn" id="newBtn">New</button>
+      <button class="btn" id="openBtn">Open</button>
+      <button class="btn" id="saveBtn">Save project</button>
+      <button class="btn primary" id="exportBtn">Export ▾</button>
+      <input id="fileInput" hidden type="file" accept=".json,application/json">
+    </div>
+  </header>
+  <nav class="tools" aria-label="Drawing tools">
+    <div class="toolbar-group">
+      <button class="toolbtn active" data-tool="select" title="Select and move (V)" aria-pressed="true"><span class="glyph">↖</span><span class="word">Select</span></button>
+      <button class="toolbtn" data-tool="rect" title="Rectangle (R)" aria-pressed="false"><span class="glyph">▭</span><span class="word">Rectangle</span></button>
+      <button class="toolbtn" data-tool="roundRect" title="Rounded rectangle" aria-pressed="false"><span class="glyph">▢</span><span class="word">Rounded</span></button>
+      <button class="toolbtn" data-tool="circle" title="Circle (C)" aria-pressed="false"><span class="glyph">◯</span><span class="word">Circle</span></button>
+      <button class="toolbtn" data-tool="ellipse" title="Ellipse" aria-pressed="false"><span class="glyph">⬭</span><span class="word">Ellipse</span></button>
+      <button class="toolbtn" data-tool="triangle" title="Triangle" aria-pressed="false"><span class="glyph">△</span><span class="word">Triangle</span></button>
+      <button class="toolbtn" data-tool="hex" title="Hexagon" aria-pressed="false"><span class="glyph">⬡</span><span class="word">Hexagon</span></button>
+      <button class="toolbtn" data-tool="line" title="Line (L)" aria-pressed="false"><span class="glyph">╱</span><span class="word">Line</span></button>
+      <button class="toolbtn" data-tool="text" title="Text (T)" aria-pressed="false"><span class="glyph">T</span><span class="word">Text</span></button>
+    </div>
+    <div class="tooldivider" aria-hidden="true"></div>
+    <button class="toolbtn" data-tool="dimension" title="Measure between two points (D)" aria-pressed="false"><span class="glyph">↔</span><span class="word">Measure</span></button>
+    <div class="push"></div>
+    <button class="btn" id="previewBtn" title="Inspect solid extrusions in 3D">◇ 3D preview</button>
+  </nav>
+  <main class="work">
+    <aside class="side left" aria-label="Drawing settings and objects">
+      <div class="section">
+        <h2>Drawing settings</h2>
+        <div class="field"><label for="unitsSelect">Units</label><select id="unitsSelect"><option value="mm">Millimeters (mm)</option><option value="in">Inches (in)</option></select></div>
+        <label class="checkrow"><input id="gridEnabled" type="checkbox" checked> Show grid</label>
+        <label class="checkrow"><input id="snapEnabled" type="checkbox" checked> Snap to grid</label>
+        <div class="field"><label for="snapSize">Snap spacing</label><select id="snapSize"><option value="1">1 mm</option><option value="2.5">2.5 mm</option><option value="5" selected>5 mm</option><option value="10">10 mm</option><option value="25.4">1 inch</option></select></div>
+        <label class="checkrow"><input id="autoLabel" type="checkbox" checked> Auto-label new shapes</label>
+        <label class="checkrow"><input id="autoDims" type="checkbox" checked> Auto-dimension new shapes</label>
+        <label class="checkrow"><input id="showDims" type="checkbox" checked> Show dimensions</label>
+      </div>
+      <div class="section">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px"><h2 style="margin:0">Objects <span id="objectCount">(0)</span></h2><button class="tinybtn" id="clearBtn" title="Remove all objects">Clear</button></div>
+        <div id="layers" aria-label="Object list"></div>
+      </div>
+      <div class="section hint">
+        <strong>Quick start</strong><br>Choose a shape, then click and drag on the canvas. Select a shape to edit its exact measurements, or click a blue dimension value to change its size. Drag the shape to reposition it. Use <strong>Measure</strong> to draw a distance between two points.
+        <div class="divider"></div>
+        <strong>Shortcuts</strong><br>V select · R rectangle · C circle · L line · T text · D measure · Delete remove · Ctrl+Z undo · Wheel zoom · Space+drag pan
+      </div>
+    </aside>
+    <div class="stage" id="stage">
+      <svg id="cadSvg" role="img" aria-label="CAD workspace. Draw shapes by choosing a tool and dragging on the canvas." xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220">
+        <defs>
+          <pattern id="smallGrid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="#eaf0f8" stroke-width="0.55"/></pattern>
+          <pattern id="majorGrid" width="50" height="50" patternUnits="userSpaceOnUse"><rect width="50" height="50" fill="url(#smallGrid)"/><path d="M 50 0 L 0 0 0 50" fill="none" stroke="#d5deec" stroke-width="0.75"/></pattern>
+        </defs>
+        <g id="gridLayer"><rect id="gridBg" width="100%" height="100%" fill="url(#majorGrid)"/></g>
+        <g id="drawingLayer"></g><g id="handlesLayer"></g>
+      </svg>
+      <div class="canvas-chip" id="canvasChip"><strong>mm</strong> · grid 10 mm</div>
+      <div class="zoom-tools" aria-label="Canvas zoom"><button id="zoomIn" title="Zoom in">+</button><button id="zoomOut" title="Zoom out">−</button><button id="fitBtn" title="Fit drawing">⤢</button></div>
+      <input class="quick-dim" id="quickDimInput" type="number" step="any" aria-label="Edit dimension" hidden>
+      <div class="toast" id="toast" role="status" hidden></div>
+    </div>
+    <aside class="side right" aria-label="Object properties">
+      <div class="section" id="inspector"><h2>Properties</h2><div class="selection-empty">Select an object to edit its size, position, label, or material thickness.</div></div>
+      <div class="section hint"><strong>Export guide</strong><br><strong>SVG / DXF:</strong> vector CAD and laser cutting.<br><strong>PNG:</strong> image preview.<br><strong>STL:</strong> 3D-printed extruded shapes.<br><strong>Project JSON:</strong> editable backup.</div>
+    </aside>
+  </main>
+  <footer class="status"><span id="statusTool"><strong>Select</strong> tool</span><span id="statusPos">X: — &nbsp; Y: —</span><span id="statusSelection">No selection</span><span class="push"></span><span id="statusZoom">100%</span><span>Autosaved locally</span></footer>
+</div>
+<div class="modal" id="exportModal" hidden role="dialog" aria-modal="true" aria-labelledby="exportHeading">
+  <div class="dialog">
+    <div class="dialog-header"><h2 id="exportHeading">Export your design</h2><button class="close" data-close="exportModal" aria-label="Close export dialog">✕</button></div>
+    <div class="hint">Uses actual measurements in mm or inches. Exports include visible labels and dimensions unless otherwise noted.</div>
+    <label class="checkrow"><input type="checkbox" id="cutOnly"> <strong>Outlines only</strong> — omit text and dimension annotations for cutting</label>
+    <div class="export-grid">
+      <button class="export-card" data-export="svg"><strong>SVG · Vector drawing</strong><span>Scale-accurate outlines and text for laser cutters, graphics, and CAD.</span></button>
+      <button class="export-card" data-export="dxf"><strong>DXF · CAD drawing</strong><span>Editable outlines, lines, and labels for AutoCAD-style software.</span></button>
+      <button class="export-card" data-export="stl"><strong>STL · 3D printing</strong><span>Closed 2D shapes extruded into printable 3D solids. No text or booleans.</span></button>
+      <button class="export-card" data-export="png"><strong>PNG · Image</strong><span>High-resolution preview on a white background.</span></button>
+      <button class="export-card" data-export="json"><strong>JSON · Editable project</strong><span>Save a full project backup including dimensions and metadata.</span></button>
+      <button class="export-card" data-export="print"><strong>Print / Save PDF</strong><span>Print a clean vector layout or use the browser's “Save as PDF”.</span></button>
+    </div>
+    <div class="smallnote">The outlines-only option applies to SVG, DXF, PNG and print/PDF. STL only contains closed shapes (rectangles, circles, etc.) with their specified extrusion depths; text, dimension marks, open lines and measurement annotations are not embossed. Overlapping shapes are not unioned. Use a slicer to inspect printed parts.</div>
+    <div class="modal-foot"><button class="btn" data-close="exportModal">Close</button></div>
+  </div>
+</div>
+<div class="modal" id="previewModal" hidden role="dialog" aria-modal="true" aria-labelledby="previewHeading">
+  <div class="dialog">
+    <div class="dialog-header"><h2 id="previewHeading">3D extrusion preview</h2><button class="close" data-close="previewModal" aria-label="Close preview">✕</button></div>
+    <canvas id="previewCanvas" width="950" height="600" aria-label="Interactive 3D solid preview"></canvas>
+    <div class="smallnote">Drag to orbit. Scroll to zoom. Extrusion depth is editable per shape in the Properties panel. This previews printable geometry, not 3D lettering.</div>
+    <div class="modal-foot"><button class="btn" data-close="previewModal">Close</button><button class="btn primary" id="previewStlBtn">Export STL</button></div>
+  </div>
+</div>
+<script>
+(() => {
+'use strict';
+const $=id=>document.getElementById(id), svg=$('cadSvg'), drawing=$('drawingLayer'), handles=$('handlesLayer'), stage=$('stage');
+const STORAGE='simple-cad-studio-v1', SVGNS='http://www.w3.org/2000/svg';
+const E_TYPES=['rect','roundRect','circle','ellipse','triangle','hex','line','text','dimension'];
+const shapeNames={rect:'Rectangle',roundRect:'Rounded rectangle',circle:'Circle',ellipse:'Ellipse',triangle:'Triangle',hex:'Hexagon',line:'Line',text:'Text',dimension:'Measurement'};
+const symbols={rect:'▭',roundRect:'▢',circle:'◯',ellipse:'⬭',triangle:'△',hex:'⬡',line:'╱',text:'T',dimension:'↔'};
+const model={name:'Untitled design',units:'mm',grid:true,snap:true,snapSize:5,autoLabel:true,autoDims:true,showDims:true,items:[]};
+let selected=null, tool='select', action=null, spaceHeld=false, viewport={x:-12,y:-12,w:340,h:225}, lastPointer={x:0,y:0}, history=[],histIndex=-1, saveTimer, toastTimer;
+let previewYaw=-0.65,previewPitch=0.62,previewZoom=1,previewDrag=null;
+const num=(v,d=0)=>{const n=Number(v);return Number.isFinite(n)?n:d};
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const round=(v,n=2)=>Number(num(v).toFixed(n));
+const ux=()=>model.units==='in'?25.4:1;
+const u=val=>round(val/ux(),model.units==='in'?3:2);
+const unitString=(val)=>`${u(val)} ${model.units}`;
+const escapeHTML=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const escapeXML=escapeHTML;
+const makeId=()=>`i${Date.now().toString(36)}${Math.random().toString(36).slice(2,8)}`;
+const isSolid=i=>['rect','roundRect','circle','ellipse','triangle','hex'].includes(i.type);
+const itemById=id=>model.items.find(i=>i.id===id);
+const current=()=>itemById(selected);
+const snap=v=>model.snap?Math.round(v/model.snapSize)*model.snapSize:round(v,2);
+const point=e=>{const rect=svg.getBoundingClientRect();return {x:viewport.x+(e.clientX-rect.left)/rect.width*viewport.w,y:viewport.y+(e.clientY-rect.top)/rect.height*viewport.h}};
+const pixelWorld=()=>viewport.w/Math.max(1,svg.getBoundingClientRect().width);
+const itemCenter=i=>({x:i.x+i.w/2,y:i.y+i.h/2});
+const signed=(p)=>p.reduce((a,q,j)=>{let b=p[(j+1)%p.length];return a+q.x*b.y-b.x*q.y},0)/2;
+function polygon(i,steps=48){
+ const x=i.x,y=i.y,w=i.w,h=i.h;
+ if(i.type==='rect')return [{x,y},{x:x+w,y},{x:x+w,y:y+h},{x,y:y+h}];
+ if(i.type==='roundRect'){
+   const r=Math.min(w,h)/5,pts=[];
+   for(const [cx,cy,a] of [[x+w-r,y+r,-90],[x+w-r,y+h-r,0],[x+r,y+h-r,90],[x+r,y+r,180]])
+     for(let k=0;k<=7;k++){const theta=(a+k*90/7)*Math.PI/180;pts.push({x:cx+r*Math.cos(theta),y:cy+r*Math.sin(theta)});}return pts;
+ }
+ if(i.type==='circle'||i.type==='ellipse'){
+   const pts=[];for(let k=0;k<steps;k++){const t=k*2*Math.PI/steps;pts.push({x:x+w/2+w/2*Math.cos(t),y:y+h/2+h/2*Math.sin(t)});}return pts;
+ }
+ if(i.type==='triangle')return [{x:x+w/2,y},{x:x+w,y:y+h},{x,y:y+h}];
+ if(i.type==='hex')return [{x:x+w*.25,y},{x:x+w*.75,y},{x:x+w,y:y+h/2},{x:x+w*.75,y:y+h},{x:x+w*.25,y:y+h},{x,y:y+h/2}];
+ return [];
+}
+function rotate(p,i){const r=num(i.rotation)*Math.PI/180;if(!r)return p;const c=itemCenter(i),dx=p.x-c.x,dy=p.y-c.y;return {x:c.x+dx*Math.cos(r)-dy*Math.sin(r),y:c.y+dx*Math.sin(r)+dy*Math.cos(r)};}
+function viewBounds(includeDimensions=true){
+ const pts=[];
+ for(const i of model.items){if(i.hidden)continue;
+  if(i.type==='dimension'){pts.push({x:i.x,y:i.y},{x:i.x2,y:i.y2});continue;}
+  if(i.type==='line'){pts.push(rotate({x:i.x,y:i.y},i),rotate({x:i.x+i.w,y:i.y+i.h},i));continue;}
+  if(i.type==='text'){pts.push({x:i.x,y:i.y},{x:i.x+Math.max(8,i.label.length*(i.labelSize||5)*.62),y:i.y+(i.labelSize||5)*1.5});continue;}
+  let corners=[{x:i.x,y:i.y},{x:i.x+i.w,y:i.y},{x:i.x+i.w,y:i.y+i.h},{x:i.x,y:i.y+i.h}];pts.push(...corners.map(p=>rotate(p,i)));
+  if(includeDimensions&&model.showDims&&i.showDimensions){pts.push(rotate({x:i.x,y:i.y-14},i),rotate({x:i.x+i.w+17,y:i.y+i.h},i));}
+ }
+ if(!pts.length)return{x:0,y:0,w:240,h:160};
+ const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y),x=Math.min(...xs),y=Math.min(...ys);return {x,y,w:Math.max(1,Math.max(...xs)-x),h:Math.max(1,Math.max(...ys)-y)};
+}
+function fitDrawing(){const b=viewBounds(true),rect=svg.getBoundingClientRect(),ratio=rect.width/Math.max(rect.height,1);let w=Math.max(80,b.w*1.25),h=Math.max(60,b.h*1.3);if(w/h<ratio)w=h*ratio;else h=w/ratio;viewport={x:b.x+b.w/2-w/2,y:b.y+b.h/2-h/2,w,h};renderStage();}
+function resetViewport(){const rect=svg.getBoundingClientRect(),ratio=rect.width/Math.max(rect.height,1);const w=Math.max(280,210*ratio);viewport={x:-w*.08,y:-210*.12,w,h:w/ratio};renderStage();}
+function zoom(factor,cx=null,cy=null){const rect=svg.getBoundingClientRect(),origin=cx??rect.left+rect.width/2,oy=cy??rect.top+rect.height/2;const old=point({clientX:origin,clientY:oy});const w=clamp(viewport.w*factor,10,6000),h=w/Math.max(.1,rect.width/Math.max(1,rect.height));const fx=(origin-rect.left)/rect.width,fy=(oy-rect.top)/rect.height;viewport={x:old.x-fx*w,y:old.y-fy*h,w,h};renderStage();}
+function addItem(type,x,y){const count=model.items.filter(i=>i.type===type).length+1;
+ const item={id:makeId(),type,name:`${shapeNames[type]} ${count}`,x,y,w:1,h:1,rotation:0,stroke:'#26446e',fill:'#bcd4fd',strokeWidth:0.6,label:((isSolid({type})||type==='line')&&model.autoLabel)?`${shapeNames[type]} ${count}`:'',labelSize:5,labelColor:'#19345b',showDimensions:(isSolid({type})&&model.autoDims),depth:3,hidden:false};
+ if(type==='line'){item.strokeWidth=.65;item.fill='none';}
+ if(type==='text'){item.label='Text';item.w=0;item.h=0;item.labelSize=9;}
+ if(type==='dimension'){item.x2=x+1;item.y2=y;item.label='';item.showDimensions=false;}
+ model.items.push(item);selected=item.id;return item;
+}
+function shapeSVG(i){const attrs=`fill="${escapeXML(i.fill)}" stroke="${escapeXML(i.stroke)}" stroke-width="${i.strokeWidth}" stroke-linejoin="round"`;
+ if(i.type==='rect')return `<rect x="${i.x}" y="${i.y}" width="${i.w}" height="${i.h}" ${attrs}/>`;
+ if(i.type==='roundRect')return `<rect x="${i.x}" y="${i.y}" width="${i.w}" height="${i.h}" rx="${Math.min(i.w,i.h)/5}" ${attrs}/>`;
+ if(i.type==='circle'||i.type==='ellipse')return `<ellipse cx="${i.x+i.w/2}" cy="${i.y+i.h/2}" rx="${i.w/2}" ry="${i.h/2}" ${attrs}/>`;
+ if(i.type==='triangle'||i.type==='hex')return `<polygon points="${polygon(i).map(p=>`${p.x},${p.y}`).join(' ')}" ${attrs}/>`;
+ if(i.type==='line')return `<line x1="${i.x}" y1="${i.y}" x2="${i.x+i.w}" y2="${i.y+i.h}" stroke="${escapeXML(i.stroke)}" stroke-width="${i.strokeWidth}" stroke-linecap="round"/>`;
+ if(i.type==='text')return `<text x="${i.x}" y="${i.y+(i.labelSize||5)}" fill="${escapeXML(i.labelColor)}" font-family="Arial,sans-serif" font-size="${i.labelSize||5}" font-weight="500">${escapeXML(i.label||'Text')}</text>`;
+ if(i.type==='dimension')return dimensionMarkup(i);
+ return '';
+}
+function dimensionMarkup(i){const x1=i.x,y1=i.y,x2=i.x2,y2=i.y2,dx=x2-x1,dy=y2-y1,len=Math.hypot(dx,dy)||1,angle=Math.atan2(dy,dx),off=5;
+ const nx=-dy/len,ny=dx/len,mx=(x1+x2)/2+nx*off,my=(y1+y2)/2+ny*off,tx=mx,ty=my-1.8,show=unitString(len);
+ const a={x:x1+nx*off,y:y1+ny*off},b={x:x2+nx*off,y:y2+ny*off};
+ return `<g fill="none" stroke="#396bd3" stroke-width="0.5"><line x1="${x1}" y1="${y1}" x2="${a.x+nx*2}" y2="${a.y+ny*2}"/><line x1="${x2}" y1="${y2}" x2="${b.x+nx*2}" y2="${b.y+ny*2}"/><line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"/><path d="M${a.x+2*nx-2*Math.cos(angle)} ${a.y+2*ny-2*Math.sin(angle)} l${4*Math.cos(angle)} ${4*Math.sin(angle)} M${b.x+2*nx-2*Math.cos(angle)} ${b.y+2*ny-2*Math.sin(angle)} l${4*Math.cos(angle)} ${4*Math.sin(angle)}"/></g><text x="${tx}" y="${ty}" text-anchor="middle" font-family="Arial,sans-serif" font-size="4.1" fill="#2358bd" stroke="white" stroke-width="1.8" paint-order="stroke">${escapeXML(show)}</text>`;
+}
+function autoDimensionSVG(i){if(!i.showDimensions||!model.showDims||!isSolid(i))return '';
+ const x=i.x,y=i.y,w=i.w,h=i.h,tick=2.2,gap=9,stroke='#4b78ca',font='4.3';
+ let result=`<g stroke="${stroke}" fill="none" stroke-width="0.45"><line x1="${x}" y1="${y-3}" x2="${x}" y2="${y-gap-3}"/><line x1="${x+w}" y1="${y-3}" x2="${x+w}" y2="${y-gap-3}"/><line x1="${x}" y1="${y-gap}" x2="${x+w}" y2="${y-gap}"/><path d="M${x-tick} ${y-gap+tick} l${tick*2} ${-tick*2} M${x+w-tick} ${y-gap+tick} l${tick*2} ${-tick*2}"/></g>`;
+ const wtxt=i.type==='circle'?`Ø ${unitString(w)}`:unitString(w);
+ result+=`<text data-dim-prop="w" style="cursor:text" x="${x+w/2}" y="${y-gap-1.7}" text-anchor="middle" fill="${stroke}" stroke="white" stroke-width="2" paint-order="stroke" font-family="Arial,sans-serif" font-size="${font}">${escapeXML(wtxt)}</text>`;
+ if(i.type==='circle')return result;
+ const vx=x+w+gap,vy=y+h/2;
+ result+=`<g stroke="${stroke}" fill="none" stroke-width="0.45"><line x1="${x+w+3}" y1="${y}" x2="${vx+3}" y2="${y}"/><line x1="${x+w+3}" y1="${y+h}" x2="${vx+3}" y2="${y+h}"/><line x1="${vx}" y1="${y}" x2="${vx}" y2="${y+h}"/><path d="M${vx-tick} ${y+tick} l${tick*2} ${-tick*2} M${vx-tick} ${y+h+tick} l${tick*2} ${-tick*2}"/></g>`;
+ result+=`<text data-dim-prop="h" style="cursor:text" transform="rotate(90 ${vx+5.8} ${vy})" x="${vx+5.8}" y="${vy}" text-anchor="middle" dominant-baseline="middle" fill="${stroke}" stroke="white" stroke-width="2" paint-order="stroke" font-family="Arial,sans-serif" font-size="${font}">${escapeXML(unitString(h))}</text>`;
+ return result;
+}
+function itemMarkup(i,forExport=false,outlinesOnly=false){if(i.hidden||(outlinesOnly&&!isSolid(i)&&i.type!=='line'))return '';
+ const transform=isSolid(i)||i.type==='line'?` transform="rotate(${i.rotation||0} ${i.x+i.w/2} ${i.y+i.h/2})"`:'';
+ let content=shapeSVG(i);
+ if(isSolid(i)&&i.label&&!outlinesOnly)content+=`<text x="${i.x+i.w/2}" y="${i.y+i.h/2}" text-anchor="middle" dominant-baseline="middle" font-family="Arial,sans-serif" font-weight="600" font-size="${i.labelSize}" fill="${escapeXML(i.labelColor)}" pointer-events="none">${escapeXML(i.label)}</text>`;
+ if(i.type==='line'&&i.label&&!outlinesOnly)content+=`<text x="${i.x+i.w/2}" y="${i.y+i.h/2-2}" text-anchor="middle" font-family="Arial,sans-serif" font-size="${i.labelSize}" fill="${escapeXML(i.labelColor)}" pointer-events="none">${escapeXML(i.label)}</text>`;
+ if(!outlinesOnly)content+=autoDimensionSVG(i);
+ return `<g${transform}${forExport?'':` data-id="${i.id}" class="object-group"`} style="cursor:${forExport?'inherit':'pointer'}">${content}</g>`;
+}
+function renderStage(){
+ svg.setAttribute('viewBox',`${viewport.x} ${viewport.y} ${viewport.w} ${viewport.h}`);
+ $('gridLayer').style.display=model.grid?'':'none';
+ $('gridBg').setAttribute('x',viewport.x);$('gridBg').setAttribute('y',viewport.y);$('gridBg').setAttribute('width',viewport.w);$('gridBg').setAttribute('height',viewport.h);
+ drawing.innerHTML=model.items.map(i=>itemMarkup(i)).join('');
+ const i=current(),pw=pixelWorld();let h='';
+ if(i&&!i.hidden){
+  const col='#245eda',lineW=1.3*pw;
+  if(isSolid(i)||i.type==='line'){
+   const rot=num(i.rotation);const x=i.x,y=i.y,w=i.w,hh=i.h,trans=`rotate(${rot} ${x+w/2} ${y+hh/2})`;
+   if(i.type==='line'){
+      h=`<g transform="${trans}"><line x1="${x}" y1="${y}" x2="${x+w}" y2="${y+hh}" stroke="${col}" stroke-width="${lineW}" stroke-dasharray="${5*pw} ${3*pw}"/>`;
+      if(!rot)for(const [name,xx,yy] of [['nw',x,y],['se',x+w,y+hh]])h+=`<rect data-id="${i.id}" data-handle="${name}" x="${xx-4*pw}" y="${yy-4*pw}" width="${8*pw}" height="${8*pw}" rx="${pw}" fill="white" stroke="${col}" stroke-width="${pw}" style="cursor:nwse-resize"/>`;
+      h+='</g>';
+   }else{
+     h=`<g transform="${trans}"><rect x="${x}" y="${y}" width="${w}" height="${hh}" fill="none" stroke="${col}" stroke-width="${lineW}" stroke-dasharray="${5*pw} ${3*pw}" pointer-events="none"/>`;
+     if(!rot)for(const [name,xx,yy,cursor] of [['nw',x,y,'nwse-resize'],['ne',x+w,y,'nesw-resize'],['sw',x,y+hh,'nesw-resize'],['se',x+w,y+hh,'nwse-resize']])h+=`<rect data-id="${i.id}" data-handle="${name}" x="${xx-4*pw}" y="${yy-4*pw}" width="${8*pw}" height="${8*pw}" rx="${pw}" fill="white" stroke="${col}" stroke-width="${pw}" style="cursor:${cursor}"/>`;
+     h+='</g>';
+   }
+  }else if(i.type==='text'){const w=Math.max(8,i.label.length*i.labelSize*.63),hh=i.labelSize*1.5;h=`<rect x="${i.x-2}" y="${i.y-1}" width="${w+4}" height="${hh+2}" fill="none" stroke="${col}" stroke-width="${lineW}" stroke-dasharray="${5*pw} ${3*pw}" pointer-events="none"/>`;}
+  else if(i.type==='dimension'){h=`<line x1="${i.x}" y1="${i.y}" x2="${i.x2}" y2="${i.y2}" stroke="${col}" stroke-width="${lineW}" stroke-dasharray="${5*pw} ${3*pw}" pointer-events="none"/>`;}
+ }
+ handles.innerHTML=h;
+ svg.classList.toggle('selecting',tool==='select');
+ $('canvasChip').innerHTML=`<strong>${model.units}</strong> · snap ${u(model.snapSize)} ${model.units} ${model.snap?'on':'off'}`;
+ $('statusZoom').textContent=`${Math.round(320/viewport.w*100)}%`;
+}
+function renderLayers(){const box=$('layers');$('objectCount').textContent=`(${model.items.length})`;
+ if(!model.items.length){box.innerHTML='<div class="layerempty">Nothing yet. Choose a shape above to begin.</div>';return;}
+ box.innerHTML=[...model.items].reverse().map(i=>`<div class="layerrow ${selected===i.id?'selected':''}" data-layer-id="${i.id}" tabindex="0" role="button" aria-label="Select ${escapeHTML(i.name)}"><span class="layericon">${symbols[i.type]}</span><span class="layername">${escapeHTML(i.name)}</span><button class="eye" type="button" data-eye-id="${i.id}" aria-label="${i.hidden?'Show':'Hide'} ${escapeHTML(i.name)}" title="${i.hidden?'Show':'Hide'} object">${i.hidden?'◌':'●'}</button></div>`).join('');
+}
+function field(label,prop,value,type='number',extra=''){return `<div class="field"><label for="prop_${prop}">${label}</label><input id="prop_${prop}" data-prop="${prop}" type="${type}" ${type==='number'?'step="any"':''} value="${escapeHTML(value)}" ${extra}></div>`;}
+function renderInspector(){const node=$('inspector'),i=current();
+ if(!i){node.innerHTML='<h2>Properties</h2><div class="selection-empty">Select an object to edit its size, position, label, or material thickness.</div>';return;}
+ let html=`<h2>Properties</h2><div class="field"><label for="prop_name">Object name</label><input id="prop_name" data-prop="name" type="text" value="${escapeHTML(i.name)}"></div>`;
+ if(i.type==='dimension'){
+  html+=`<p class="hint">Point-to-point measurement</p><div class="rowfields">${field('Start X', 'x',u(i.x))}${field('Start Y','y',u(i.y))}${field('End X','x2',u(i.x2))}${field('End Y','y2',u(i.y2))}</div><p style="font-weight:750">Distance: ${unitString(Math.hypot(i.x2-i.x,i.y2-i.y))}</p>`;
+ }else{
+  html+=`<div class="rowfields">${field(`X (${model.units})`,'x',u(i.x))}${field(`Y (${model.units})`,'y',u(i.y))}</div>`;
+  if(isSolid(i)){
+   html+=`<div class="rowfields">${field(`Width (${model.units})`,'w',u(i.w))}${field(`Height (${model.units})`,'h',u(i.h))}</div>`;
+   html+=field('Rotation (degrees)','rotation',round(i.rotation,1));
+   if(i.type==='circle')html+=`<div class="smallnote" style="margin-top:-6px">Circle diameter stays equal when width or height changes.</div>`;
+  }
+  if(i.type==='line')html+=`<div class="rowfields">${field(`Δ X (${model.units})`,'w',u(i.w))}${field(`Δ Y (${model.units})`,'h',u(i.h))}</div>`;
+  html+=`<div class="divider"></div><h2>Label</h2>${field('Text', 'label', i.label||'','text')}`;
+  html+=`<div class="rowfields">${field(`Font size (${model.units})`,'labelSize',u(i.labelSize))}<div class="field"><label for="prop_labelColor">Text color</label><input type="color" id="prop_labelColor" data-prop="labelColor" value="${escapeHTML(i.labelColor)}"></div></div>`;
+  if(isSolid(i)){
+   html+=`<label class="checkrow"><input type="checkbox" data-prop="showDimensions" ${i.showDimensions?'checked':''}> Show width and height dimensions</label>`;
+   html+=`<div class="divider"></div><h2>Shape and material</h2><div class="rowfields"><div class="field"><label for="prop_fill">Fill</label><input type="color" id="prop_fill" data-prop="fill" value="${escapeHTML(i.fill)}"></div><div class="field"><label for="prop_stroke">Outline</label><input type="color" id="prop_stroke" data-prop="stroke" value="${escapeHTML(i.stroke)}"></div></div>`;
+   html+=`<div class="rowfields">${field('Outline width (mm)','strokeWidth',i.strokeWidth)}${field(`Extrude (${model.units})`,'depth',u(i.depth))}</div>`;
+   html+=`<div class="smallnote">Extrusion depth controls STL output. It does not change SVG/DXF dimensions.</div>`;
+  }else if(i.type==='line')html+=field('Line thickness (mm)','strokeWidth',i.strokeWidth);
+ }
+ html+=`<div class="divider"></div><div class="actionrow"><button class="btn" id="duplicateBtn">Duplicate</button><button class="btn" id="frontBtn">To front</button><button class="btn danger" id="deleteBtn">Delete</button></div>`;
+ node.innerHTML=html;
+}
+function renderStatus(){const i=current();$('statusTool').innerHTML=`<strong>${tool==='select'?'Select':shapeNames[tool]}</strong> tool`;
+ $('statusSelection').textContent=i?`${i.name}${isSolid(i)?` · ${unitString(i.w)} × ${unitString(i.h)}`:''}`:'No selection';
+ $('undoBtn').disabled=histIndex<=0;$('redoBtn').disabled=histIndex>=history.length-1;
+}
+function render(){renderStage();renderLayers();renderInspector();renderStatus();}
+function snapshot(){return JSON.stringify(model);}
+function commit(){const v=snapshot();if(history[histIndex]===v){scheduleSave();renderStatus();return;}
+ history=history.slice(0,histIndex+1);history.push(v);if(history.length>70)history.shift();histIndex=history.length-1;scheduleSave();renderStatus();}
+function restore(s){let obj=JSON.parse(s);if(!obj||!Array.isArray(obj.items))throw Error('Invalid CAD project');
+ Object.assign(model,{name:obj.name||'Untitled design',units:obj.units==='in'?'in':'mm',grid:obj.grid!==false,snap:obj.snap!==false,snapSize:clamp(num(obj.snapSize,5),.1,100),autoLabel:obj.autoLabel!==false,autoDims:obj.autoDims!==false,showDims:obj.showDims!==false,items:obj.items.slice(0,1000).filter(i=>i&&E_TYPES.includes(i.type)).map(i=>({
+   ...i,id:(typeof i.id==='string'&&/^i[a-z0-9]{3,40}$/i.test(i.id))?i.id:makeId(),
+   name:String(i.name??shapeNames[i.type]).slice(0,120),label:String(i.label??'').slice(0,1000),
+   x:clamp(num(i.x),-100000,100000),y:clamp(num(i.y),-100000,100000),
+   w:isSolid(i)?clamp(num(i.w,40),.5,100000):num(i.w),h:isSolid(i)?clamp(num(i.h,40),.5,100000):num(i.h),
+   x2:num(i.x2),y2:num(i.y2),rotation:num(i.rotation),
+   stroke:/^#[0-9a-f]{6}$/i.test(i.stroke)?i.stroke:'#26446e',
+   fill:/^#[0-9a-f]{6}$/i.test(i.fill)?i.fill:'#bcd4fd',
+   labelColor:/^#[0-9a-f]{6}$/i.test(i.labelColor)?i.labelColor:'#19345b',
+   strokeWidth:clamp(num(i.strokeWidth,.6),.05,10),depth:clamp(num(i.depth,3),.2,100),
+   labelSize:clamp(num(i.labelSize,5),1,100),showDimensions:!!i.showDimensions,hidden:!!i.hidden
+  }))});
+ selected=null;syncSettings();render();}
+function syncSettings(){ $('projectName').value=model.name;$('unitsSelect').value=model.units;$('gridEnabled').checked=model.grid;$('snapEnabled').checked=model.snap;$('snapSize').value=String(model.snapSize);if($('snapSize').selectedIndex===-1)$('snapSize').value='5';$('autoLabel').checked=model.autoLabel;$('autoDims').checked=model.autoDims;$('showDims').checked=model.showDims; }
+function scheduleSave(){clearTimeout(saveTimer);saveTimer=setTimeout(()=>{try{localStorage.setItem(STORAGE,snapshot());}catch(e){console.warn('Autosave failed',e);}},320);}
+function undo(){if(histIndex>0){histIndex--;restore(history[histIndex]);showToast('Undone');}}
+function redo(){if(histIndex<history.length-1){histIndex++;restore(history[histIndex]);showToast('Redone');}}
+function setTool(v){tool=v;document.querySelectorAll('[data-tool]').forEach(el=>{const active=el.dataset.tool===v;el.classList.toggle('active',active);el.setAttribute('aria-pressed',String(active));});renderStage();renderStatus();}
+function showToast(msg){clearTimeout(toastTimer);const el=$('toast');el.textContent=msg;el.hidden=false;toastTimer=setTimeout(()=>el.hidden=true,2300);}
+function draggingSize(i,start,p){
+ let dx=p.x-start.x,dy=p.y-start.y;
+ if(i.type==='line'){i.x=start.x;i.y=start.y;i.w=round(snap(p.x)-start.x);i.h=round(snap(p.y)-start.y);return;}
+ let x=Math.min(start.x,snap(p.x)),y=Math.min(start.y,snap(p.y)),w=Math.abs(snap(p.x)-start.x),h=Math.abs(snap(p.y)-start.y);
+ if(i.type==='circle'){const side=Math.max(w,h);x=dx<0?start.x-side:start.x;y=dy<0?start.y-side:start.y;w=side;h=side;}
+ i.x=round(x);i.y=round(y);i.w=Math.max(.1,round(w));i.h=Math.max(.1,round(h));
+}
+function resizeItem(i,how,start,p,original){
+ if(i.type==='line'){if(how==='nw'){i.x=snap(p.x);i.y=snap(p.y);i.w=original.x+original.w-i.x;i.h=original.y+original.h-i.y;}
+ else{i.w=snap(p.x)-original.x;i.h=snap(p.y)-original.y;}return;}
+ const ax=how.includes('w')?original.x+original.w:original.x,ay=how.includes('n')?original.y+original.h:original.y;
+ let x=how.includes('w')?Math.min(snap(p.x),ax-1):ax,y=how.includes('n')?Math.min(snap(p.y),ay-1):ay;
+ let w=how.includes('w')?ax-x:Math.max(1,snap(p.x)-ax),h=how.includes('n')?ay-y:Math.max(1,snap(p.y)-ay);
+ if(i.type==='circle'){const side=Math.max(w,h);w=side;h=side;if(how.includes('w'))x=ax-side;if(how.includes('n'))y=ay-side;}
+ i.x=round(x);i.y=round(y);i.w=round(w);i.h=round(h);
+}
+svg.addEventListener('pointerdown',e=>{
+ if(e.button!==0&&e.button!==1)return;
+ const p=point(e);lastPointer=p;
+ if(spaceHeld||e.button===1){action={kind:'pan',start:{x:e.clientX,y:e.clientY},base:{...viewport}};svg.classList.add('panning');svg.setPointerCapture(e.pointerId);e.preventDefault();return;}
+ if(tool==='select'){
+  const dimLabel=e.target.closest('[data-dim-prop]');
+  if(dimLabel){const group=e.target.closest('[data-id]');if(group){selected=group.dataset.id;renderLayers();renderInspector();renderStatus();openQuickDimension(selected,dimLabel.dataset.dimProp,e.clientX,e.clientY);e.preventDefault();return;}}
+  const target=e.target.closest('[data-id]');const id=target?.dataset.id;
+  if(target?.dataset.handle&&itemById(id)){
+    selected=id;const item=current();action={kind:'resize',id,handle:target.dataset.handle,start:p,original:structuredClone(item),moved:false};svg.setPointerCapture(e.pointerId);render();return;
+  }
+  if(id&&itemById(id)&&!itemById(id).hidden){selected=id;action={kind:'move',id,start:p,original:structuredClone(current()),moved:false};svg.setPointerCapture(e.pointerId);}else{selected=null;}
+  render();return;
+ }
+ const sx=snap(p.x),sy=snap(p.y),i=addItem(tool,sx,sy);
+ if(tool==='text'){i.label='Text';i.labelSize=9;commit();setTool('select');render();setTimeout(()=>$('prop_label')?.focus(),0);return;}
+ action={kind:'draw',id:i.id,start:{x:sx,y:sy},moved:false};svg.setPointerCapture(e.pointerId);render();e.preventDefault();
+});
+svg.addEventListener('pointermove',e=>{
+ const p=point(e);lastPointer=p;$('statusPos').textContent=`X: ${u(p.x)} ${model.units}   Y: ${u(p.y)} ${model.units}`;
+ if(!action)return;
+ if(action.kind==='pan'){const rect=svg.getBoundingClientRect(),dx=(e.clientX-action.start.x)*action.base.w/rect.width,dy=(e.clientY-action.start.y)*action.base.h/rect.height;viewport.x=action.base.x-dx;viewport.y=action.base.y-dy;renderStage();return;}
+ const i=itemById(action.id);if(!i)return;
+ if(action.kind==='draw'){
+  if(Math.hypot(p.x-action.start.x,p.y-action.start.y)>pixelWorld()*3)action.moved=true;
+  if(i.type==='dimension'){i.x2=snap(p.x);i.y2=snap(p.y);}else draggingSize(i,action.start,p);
+ }else if(action.kind==='move'){
+  let dx=snap(p.x-action.start.x),dy=snap(p.y-action.start.y);if(Math.abs(dx)>0||Math.abs(dy)>0)action.moved=true;
+  i.x=round(action.original.x+dx);i.y=round(action.original.y+dy);
+  if(i.type==='dimension'){i.x2=round(action.original.x2+dx);i.y2=round(action.original.y2+dy);}
+ }else if(action.kind==='resize'){action.moved=true;resizeItem(i,action.handle,action.start,p,action.original);}
+ renderStage();renderStatus();
+});
+function finishAction(){if(!action)return;let a=action;action=null;svg.classList.remove('panning');
+ if(a.kind==='draw'){
+  const i=itemById(a.id);
+  if(i){if(i.type==='dimension'){
+     if(Math.hypot(i.x2-i.x,i.y2-i.y)<1){i.x2=i.x+50;i.y2=i.y;}
+    }else if(!a.moved||i.w<1||i.h<1){const sizes={rect:[65,40],roundRect:[65,40],circle:[40,40],ellipse:[60,35],triangle:[60,45],hex:[60,45],line:[60,0]};[i.w,i.h]=sizes[i.type]||[60,40];if(i.type==='line')i.h=0;}
+  }
+  setTool('select');commit();render();if(i)showToast(`${shapeNames[i.type]} added. Edit measurements at right.`);
+ }else if(a.kind==='resize'||a.kind==='move'){if(a.moved){commit();render();}else render();}
+}
+svg.addEventListener('pointerup',finishAction);svg.addEventListener('pointercancel',finishAction);
+svg.addEventListener('dblclick',e=>{
+ const target=e.target.closest('[data-id]');if(!target)return;
+ const dim=e.target.closest('[data-dim-prop]');
+ if(dim){e.preventDefault();e.stopPropagation();const i=itemById(target.dataset.id);selected=i.id;renderLayers();renderInspector();renderStatus();openQuickDimension(i.id,dim.dataset.dimProp,e.clientX,e.clientY);return;}
+ selected=target.dataset.id;render();const inp=$('prop_label');if(inp){inp.focus();inp.select();}
+});
+let editingDim=null;
+function openQuickDimension(id,prop,cx,cy){const item=itemById(id),field=$('quickDimInput'),box=stage.getBoundingClientRect();if(!item||!isSolid(item))return;
+ editingDim={id,prop};field.value=u(item[prop]);field.style.left=`${clamp(cx-box.left-58,4,box.width-126)}px`;field.style.top=`${clamp(cy-box.top-18,4,box.height-40)}px`;field.hidden=false;field.focus();field.select();}
+function saveQuickDim(){if(!editingDim)return;const {id,prop}=editingDim,i=itemById(id),val=num($('quickDimInput').value,NaN);$('quickDimInput').hidden=true;editingDim=null;
+ if(!i||!Number.isFinite(val)||val<=0){showToast('Enter a dimension larger than zero');return;}
+ i[prop]=round(val*ux(),4);if(i.type==='circle')i.w=i.h=i[prop];commit();render();}
+$('quickDimInput').addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter'){e.preventDefault();saveQuickDim();}else if(e.key==='Escape'){$('quickDimInput').hidden=true;editingDim=null;}});
+$('quickDimInput').addEventListener('blur',()=>{if(editingDim)saveQuickDim();});
+svg.addEventListener('wheel',e=>{e.preventDefault();zoom(e.deltaY>0?1.12:1/1.12,e.clientX,e.clientY);},{passive:false});
+$('layers').addEventListener('click',e=>{const eye=e.target.closest('[data-eye-id]');if(eye){const item=itemById(eye.dataset.eyeId);item.hidden=!item.hidden;if(item.hidden&&selected===item.id)selected=null;commit();render();return;}
+ const row=e.target.closest('[data-layer-id]');if(row){selected=row.dataset.layerId;setTool('select');render();}});
+$('layers').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.dataset.layerId){selected=e.target.dataset.layerId;render();}});
+$('inspector').addEventListener('change',e=>{
+ const input=e.target.closest('[data-prop]');const i=current();if(!i||!input)return;const prop=input.dataset.prop;
+ if(prop==='showDimensions')i[prop]=input.checked;
+ else if(['name','label','labelColor','fill','stroke'].includes(prop))i[prop]=input.value;
+ else{
+  let value=num(input.value,NaN);if(!Number.isFinite(value)){showToast('Enter a valid number');renderInspector();return;}
+  if(['x','y','w','h','x2','y2','depth','labelSize'].includes(prop))value*=ux();
+  if(['w','h'].includes(prop)&&isSolid(i))value=Math.max(.5,value);
+  if(prop==='labelSize')value=clamp(value,1,100);
+  if(prop==='depth')value=clamp(value,.2,100);
+  if(prop==='strokeWidth')value=clamp(value,.05,10);
+  if(prop==='rotation')value=((value%360)+360)%360;
+  i[prop]=round(value,4);
+  if(i.type==='circle'&&['w','h'].includes(prop))i.w=i.h=i[prop];
+ }
+ commit();render();
+});
+$('inspector').addEventListener('input',e=>{const input=e.target.closest('[data-prop]');const i=current();if(!i||!input)return;
+ const p=input.dataset.prop;if(['label','name','fill','stroke','labelColor'].includes(p)){i[p]=input.value;renderStage();renderLayers();renderStatus();}
+});
+$('inspector').addEventListener('click',e=>{const i=current();if(!i)return;
+ if(e.target.id==='deleteBtn'){model.items=model.items.filter(a=>a.id!==i.id);selected=null;commit();render();showToast('Object deleted');}
+ if(e.target.id==='duplicateBtn'){const dup=structuredClone(i);dup.id=makeId();dup.name=i.name+' copy';dup.x+=12;dup.y+=12;if(i.type==='dimension'){dup.x2+=12;dup.y2+=12;}model.items.push(dup);selected=dup.id;commit();render();}
+ if(e.target.id==='frontBtn'){model.items=model.items.filter(a=>a.id!==i.id);model.items.push(i);commit();render();}
+});
+function updateSetting(name,val){model[name]=val;commit();render();}
+$('projectName').addEventListener('change',e=>updateSetting('name',e.target.value.trim()||'Untitled design'));
+$('unitsSelect').addEventListener('change',e=>updateSetting('units',e.target.value));
+$('gridEnabled').addEventListener('change',e=>updateSetting('grid',e.target.checked));
+$('snapEnabled').addEventListener('change',e=>updateSetting('snap',e.target.checked));
+$('autoLabel').addEventListener('change',e=>updateSetting('autoLabel',e.target.checked));
+$('autoDims').addEventListener('change',e=>updateSetting('autoDims',e.target.checked));
+$('showDims').addEventListener('change',e=>updateSetting('showDims',e.target.checked));
+$('snapSize').addEventListener('change',e=>updateSetting('snapSize',num(e.target.value,5)));
+document.querySelectorAll('[data-tool]').forEach(b=>b.addEventListener('click',()=>setTool(b.dataset.tool)));
+$('zoomIn').onclick=()=>zoom(.8);$('zoomOut').onclick=()=>zoom(1.25);$('fitBtn').onclick=fitDrawing;
+$('undoBtn').onclick=undo;$('redoBtn').onclick=redo;
+function clearProject(){model.items=[];selected=null;model.name='Untitled design';$('projectName').value=model.name;commit();resetViewport();render();}
+$('newBtn').onclick=()=>{if(model.items.length&&!confirm('Start a new drawing? Your current design is autosaved, but will be replaced. Save a project file first if you want to keep it.'))return;clearProject();showToast('New drawing ready');};
+$('clearBtn').onclick=()=>{if(!model.items.length)return;if(confirm('Delete all objects in this drawing? You can undo this.')){model.items=[];selected=null;commit();render();}};
+$('saveBtn').onclick=()=>downloadProject();$('openBtn').onclick=()=>$('fileInput').click();
+$('fileInput').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;try{const data=await file.text();const obj=JSON.parse(data);if(!Array.isArray(obj.items))throw Error('Not a valid project');restore(data);commit();fitDrawing();showToast('Project opened');}catch(err){showToast(`Could not open project: ${err.message}`);}e.target.value='';});
+function isTyping(){const active=document.activeElement;return active&&(['INPUT','TEXTAREA','SELECT'].includes(active.tagName)||active.isContentEditable);}
+document.addEventListener('keydown',e=>{
+ if(e.key==='Escape'){if(!$('exportModal').hidden||!$('previewModal').hidden){closeDialogs();return;}if(action&&action.kind==='draw'){model.items=model.items.filter(i=>i.id!==action.id);action=null;selected=null;render();}setTool('select');return;}
+ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();downloadProject();return;}
+ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();undo();return;}
+ if((e.ctrlKey||e.metaKey)&&['y'].includes(e.key.toLowerCase())){e.preventDefault();redo();return;}
+ if(isTyping())return;
+ if(e.code==='Space'){spaceHeld=true;e.preventDefault();return;}
+ if(['Delete','Backspace'].includes(e.key)&&current()){model.items=model.items.filter(i=>i.id!==selected);selected=null;commit();render();e.preventDefault();return;}
+ const shortcut={v:'select',r:'rect',c:'circle',l:'line',t:'text',d:'dimension'}[e.key.toLowerCase()];if(shortcut){setTool(shortcut);e.preventDefault();}
+});
+document.addEventListener('keyup',e=>{if(e.code==='Space')spaceHeld=false;});
+window.addEventListener('blur',()=>{spaceHeld=false;});
+if(typeof ResizeObserver!=='undefined'){new ResizeObserver(()=>{const r=svg.getBoundingClientRect();if(r.width<10||r.height<10)return;const centerX=viewport.x+viewport.w/2,centerY=viewport.y+viewport.h/2;viewport.h=viewport.w*r.height/r.width;viewport.x=centerX-viewport.w/2;viewport.y=centerY-viewport.h/2;renderStage();}).observe(stage);}
+function boundsForExport(outlinesOnly=false){
+ let b=viewBounds(true);
+ if(outlinesOnly){const pts=[];for(const i of model.items){if(i.hidden)continue;if(isSolid(i))pts.push(...polygon(i).map(p=>rotate(p,i)));
+ else if(i.type==='line')pts.push(rotate({x:i.x,y:i.y},i),rotate({x:i.x+i.w,y:i.y+i.h},i));}
+ if(pts.length){let xs=pts.map(p=>p.x),ys=pts.map(p=>p.y),x=Math.min(...xs),y=Math.min(...ys);b={x,y,w:Math.max(1,Math.max(...xs)-x),h:Math.max(1,Math.max(...ys)-y)};}}
+ const pad=10;return{x:b.x-pad,y:b.y-pad,w:b.w+2*pad,h:b.h+2*pad};}
+function exportSVG(outlinesOnly=false){const b=boundsForExport(outlinesOnly);return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${round(b.w,3)}mm" height="${round(b.h,3)}mm" viewBox="${round(b.x,4)} ${round(b.y,4)} ${round(b.w,4)} ${round(b.h,4)}">\n<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" fill="white"/>\n${model.items.map(i=>itemMarkup(i,true,outlinesOnly)).join('\n')}\n</svg>`;}
+function asciiSafe(s){return String(s??'').normalize('NFKD').replace(/[^\x20-\x7E]/g,c=>c==='Ø'?'D':'?').slice(0,250);}
+function exportDXF(outlinesOnly=false){let ents=[];const pair=(code,val)=>`${code}\n${val}\n`;
+ const begin=(type,layer)=>pair(0,type)+pair(8,layer);
+ const line=(a,b,layer='OUTLINE')=>{ents.push(begin('LINE',layer)+pair(10,round(a.x,5))+pair(20,round(-a.y,5))+pair(30,0)+pair(11,round(b.x,5))+pair(21,round(-b.y,5))+pair(31,0));};
+ const poly=(pts,layer='OUTLINE')=>{if(pts.length<2)return;let e=begin('LWPOLYLINE',layer)+pair(90,pts.length)+pair(70,1);pts.forEach(p=>e+=pair(10,round(p.x,5))+pair(20,round(-p.y,5)));ents.push(e);};
+ const txt=(string,x,y,height=5,rotation=0,layer='LABELS')=>{if(!string)return;ents.push(begin('TEXT',layer)+pair(10,round(x,5))+pair(20,round(-y,5))+pair(30,0)+pair(40,height)+pair(1,asciiSafe(string))+pair(50,-rotation)+pair(7,'STANDARD'));};
+ for(const i of model.items){if(i.hidden)continue;
+  if(isSolid(i)){
+    if(i.type==='circle'&&Math.abs(i.w-i.h)<.001){let c=rotate(itemCenter(i),i);ents.push(begin('CIRCLE','OUTLINE')+pair(10,c.x)+pair(20,-c.y)+pair(30,0)+pair(40,i.w/2));}
+    else poly(polygon(i,64).map(p=>rotate(p,i)));
+    if(i.label&&!outlinesOnly)txt(i.label,...Object.values(rotate({x:i.x+i.w/2-i.label.length*i.labelSize*.24,y:i.y+i.h/2+i.labelSize*.32},i)),i.labelSize,i.rotation);
+    if(i.showDimensions&&model.showDims&&!outlinesOnly){const x=i.x,y=i.y,w=i.w,h=i.h,off=9;line(rotate({x,y:y-off},i),rotate({x:x+w,y:y-off},i),'DIMENSIONS');line(rotate({x,y:y-3},i),rotate({x,y:y-off-3},i),'DIMENSIONS');line(rotate({x:x+w,y:y-3},i),rotate({x:x+w,y:y-off-3},i),'DIMENSIONS');let p=rotate({x:x+w/2-7,y:y-off-2},i);txt(i.type==='circle'?`D ${unitString(w)}`:unitString(w),p.x,p.y,4,i.rotation,'DIMENSIONS');
+      if(i.type!=='circle'){line(rotate({x:x+w+off,y},i),rotate({x:x+w+off,y:y+h},i),'DIMENSIONS');let p2=rotate({x:x+w+off+2,y:y+h/2},i);txt(unitString(h),p2.x,p2.y,4,i.rotation-90,'DIMENSIONS');}}
+  }else if(i.type==='line'){line(rotate({x:i.x,y:i.y},i),rotate({x:i.x+i.w,y:i.y+i.h},i));if(i.label&&!outlinesOnly)txt(i.label,i.x+i.w/2,i.y+i.h/2,i.labelSize,i.rotation);}
+  else if(i.type==='text'&&!outlinesOnly)txt(i.label,i.x,i.y+i.labelSize,i.labelSize);
+  else if(i.type==='dimension'&&!outlinesOnly){line({x:i.x,y:i.y},{x:i.x2,y:i.y2},'DIMENSIONS');txt(unitString(Math.hypot(i.x2-i.x,i.y2-i.y)),(i.x+i.x2)/2,(i.y+i.y2)/2-5,4,0,'DIMENSIONS');}
+ }
+ let head='0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1015\n9\n$INSUNITS\n70\n4\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n';
+ return head+ents.join('')+'0\nENDSEC\n0\nEOF\n';
+}
+function stlTriangles(){const tris=[];
+ const face=(a,b,c)=>{let ux=b[0]-a[0],uy=b[1]-a[1],uz=b[2]-a[2],vx=c[0]-a[0],vy=c[1]-a[1],vz=c[2]-a[2];let nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx,mag=Math.hypot(nx,ny,nz)||1;tris.push({n:[nx/mag,ny/mag,nz/mag],v:[a,b,c]});};
+ for(const i of model.items){if(!isSolid(i)||i.hidden)continue;
+  let pts=polygon(i,64).map(p=>rotate(p,i)).map(p=>({x:p.x,y:-p.y}));
+  if(signed(pts)<0)pts=pts.reverse();
+  const depth=clamp(num(i.depth,3),.2,100),n=pts.length;
+  if(n<3)continue;
+  const base=p=>[p.x,p.y,0],top=p=>[p.x,p.y,depth];
+  for(let j=1;j<n-1;j++){face(top(pts[0]),top(pts[j]),top(pts[j+1]));face(base(pts[0]),base(pts[j+1]),base(pts[j]));}
+  for(let j=0;j<n;j++){const a=pts[j],b=pts[(j+1)%n];face(base(a),base(b),top(b));face(base(a),top(b),top(a));}
+ }
+ return tris;
+}
+function exportSTL(){const triangles=stlTriangles();if(!triangles.length)throw Error('Add a closed shape to export STL');
+ const array=new ArrayBuffer(84+triangles.length*50),dv=new DataView(array);const label=new TextEncoder().encode('Simple CAD Studio - mm STL');for(let i=0;i<label.length;i++)dv.setUint8(i,label[i]);dv.setUint32(80,triangles.length,true);
+ let at=84;for(const t of triangles){for(const v of [t.n,...t.v])for(const f of v){dv.setFloat32(at,f,true);at+=4;}dv.setUint16(at,0,true);at+=2;}
+ return new Blob([array],{type:'model/stl'});
+}
+function safeFilename(){return (model.name.trim()||'cad-design').replace(/[\\/:*?"<>|\x00-\x1f]+/g,'-').replace(/\s+/g('-')).slice(0,80)||'cad-design';}
+function download(data,name,mime){const blob=data instanceof Blob?data:new Blob([data],{type:mime});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);}
+function downloadProject(){model.name=$('projectName').value.trim()||model.name;commit();download(JSON.stringify({...model,version:1,app:'Simple CAD Studio'},null,2),safeFilename()+'.cad.json','application/json');showToast('Editable project saved');}
+async function exportPNG(outlinesOnly=false){const svgStr=exportSVG(outlinesOnly),b=boundsForExport(outlinesOnly),img=new Image(),url=URL.createObjectURL(new Blob([svgStr],{type:'image/svg+xml;charset=utf-8'}));
+ try{await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=()=>reject(Error('Could not render PNG'));img.src=url;});
+   const max=4000,scale=Math.min(5,max/Math.max(b.w,b.h)),c=document.createElement('canvas');c.width=Math.max(1,Math.ceil(b.w*scale));c.height=Math.max(1,Math.ceil(b.h*scale));let ctx=c.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);
+   const blob=await new Promise(resolve=>c.toBlob(resolve,'image/png'));if(!blob)throw Error('PNG export failed');download(blob,safeFilename()+'.png','image/png');
+ }finally{URL.revokeObjectURL(url);}
+}
+function exportPrint(outlinesOnly=false){const svgStr=exportSVG(outlinesOnly);const w=window.open('','_blank');if(!w)throw Error('Allow pop-ups to print or save as PDF');
+ const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHTML(model.name)}</title><style>@page{size:auto;margin:12mm}body{margin:0;font-family:Arial,sans-serif}svg{max-width:100%;max-height:90vh;width:auto;height:auto;display:block;margin:auto}header{font-size:14px;color:#445;padding:5px 0 10px}@media print{header{display:none}}</style></head><body><header>Press Ctrl+P and choose “Save as PDF”.</header>${svgStr.replace(/^<\?xml[^>]*>\s*/,'')}<script>window.onload=()=>setTimeout(()=>window.print(),300)<\/script></body></html>`;
+ w.document.open();w.document.write(html);w.document.close();
+}
+function closeDialogs(){$('exportModal').hidden=true;$('previewModal').hidden=true;}
+$('exportBtn').onclick=()=>{$('exportModal').hidden=false;};$('previewBtn').onclick=()=>openPreview();
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>$(b.dataset.close).hidden=true);
+document.querySelectorAll('.modal').forEach(m=>m.addEventListener('pointerdown',e=>{if(e.target===m)m.hidden=true;}));
+document.querySelectorAll('[data-export]').forEach(b=>b.addEventListener('click',async()=>{
+ const format=b.dataset.export,outlinesOnly=$('cutOnly').checked;closeDialogs();try{
+  if(format==='svg')download(exportSVG(outlinesOnly),safeFilename()+'.svg','image/svg+xml');
+  if(format==='dxf')download(exportDXF(outlinesOnly),safeFilename()+'.dxf','application/dxf');
+  if(format==='json'){downloadProject();return;}
+  if(format==='stl'){download(exportSTL(),safeFilename()+'.stl','model/stl');showToast('STL exported: shapes only; verify in slicer');return;}
+  if(format==='png'){await exportPNG(outlinesOnly);}
+  if(format==='print'){exportPrint(outlinesOnly);return;}
+  showToast(`${format.toUpperCase()} exported`);
+ }catch(error){showToast(`Export failed: ${error.message}`);console.error(error);}
+}));
+function openPreview(){if(!model.items.some(i=>isSolid(i)&&!i.hidden)){showToast('Add a closed shape for a 3D preview');return;}$('previewModal').hidden=false;previewYaw=-.65;previewPitch=.65;previewZoom=1;renderPreview();}
+function renderPreview(){if($('previewModal').hidden)return;const c=$('previewCanvas'),ctx=c.getContext('2d'),W=c.width,H=c.height;ctx.clearRect(0,0,W,H);
+ let objects=model.items.filter(i=>isSolid(i)&&!i.hidden),allPts=objects.flatMap(i=>polygon(i,40).map(p=>rotate(p,i)));if(!allPts.length)return;
+ const xs=allPts.map(p=>p.x),ys=allPts.map(p=>-p.y),depth=Math.max(3,...objects.map(i=>i.depth));const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),cx=(minX+maxX)/2,cy=(minY+maxY)/2;
+ const scale=clamp(Math.min(W/(Math.max(30,maxX-minX)*1.9),H/(Math.max(30,maxY-minY)*1.9))*previewZoom,.15,80);
+ const project=(x,y,z)=>{let px=x-cx,py=y-cy,pz=z-depth/2,co=Math.cos(previewYaw),si=Math.sin(previewYaw),xx=px*co-py*si,yy=px*si+py*co,cop=Math.cos(previewPitch),sip=Math.sin(previewPitch);return {x:W/2+xx*scale,y:H/2-(yy*cop-pz*sip)*scale,d:yy*sip+pz*cop};};
+ const faces=[];
+ for(const i of objects){let pts=polygon(i,40).map(p=>rotate(p,i)).map(p=>({x:p.x,y:-p.y}));if(signed(pts)<0)pts.reverse();const z=i.depth;
+  const top=pts.map(p=>project(p.x,p.y,z)),bottom=pts.map(p=>project(p.x,p.y,0));
+  faces.push({pts:top,depth:top.reduce((s,p)=>s+p.d,0)/top.length,fill:'#9dc2ff'});
+  for(let j=0;j<pts.length;j++){let k=(j+1)%pts.length;const q=[bottom[j],bottom[k],top[k],top[j]];let dx=pts[k].x-pts[j].x,dy=pts[k].y-pts[j].y,bright=.56+.22*Math.cos(Math.atan2(dy,dx)+previewYaw);faces.push({pts:q,depth:q.reduce((s,p)=>s+p.d,0)/4,fill:`hsl(213 67% ${Math.round(bright*77)}%)`});}
+ }
+ faces.sort((a,b)=>b.depth-a.depth);
+ for(const f of faces){ctx.beginPath();f.pts.forEach((p,j)=>j?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.fillStyle=f.fill;ctx.fill();ctx.strokeStyle='#375987';ctx.lineWidth=1.2;ctx.stroke();}
+ ctx.font='19px system-ui';ctx.fillStyle='#64748b';ctx.fillText(`${objects.length} solid${objects.length===1?'':'s'} · mm`,18,H-18);
+}
+const preview=$('previewCanvas');preview.addEventListener('pointerdown',e=>{previewDrag={x:e.clientX,y:e.clientY,yaw:previewYaw,pitch:previewPitch};preview.setPointerCapture(e.pointerId);});
+preview.addEventListener('pointermove',e=>{if(!previewDrag)return;previewYaw=previewDrag.yaw+(e.clientX-previewDrag.x)/170;previewPitch=clamp(previewDrag.pitch+(e.clientY-previewDrag.y)/220,.08,1.5);renderPreview();});
+preview.addEventListener('pointerup',()=>previewDrag=null);preview.addEventListener('pointercancel',()=>previewDrag=null);
+preview.addEventListener('wheel',e=>{e.preventDefault();previewZoom=clamp(previewZoom*(e.deltaY>0?.88:1.12),.25,5);renderPreview();},{passive:false});
+$('previewStlBtn').onclick=()=>{try{download(exportSTL(),safeFilename()+'.stl','model/stl');showToast('STL exported');}catch(e){showToast(e.message);}};
+function init(){try{const saved=localStorage.getItem(STORAGE);if(saved){restore(saved);showToast('Your last drawing was restored');}}catch(e){console.warn('Could not restore saved project',e);}history=[snapshot()];histIndex=0;syncSettings();resetViewport();render();}
+init();
+// Exposed for automated QA and future extensions; no external dependencies.
+window.CADStudio={model,exportSVG,exportDXF,exportSTL,stlTriangles,fitDrawing,addShape:(type,x=20,y=20,w=60,h=40)=>{if(!E_TYPES.includes(type))throw Error('Unknown shape');const i=addItem(type,x,y);i.w=w;i.h=type==='circle'?w:h;commit();render();return i.id;},getSelection:()=>selected};
+})();
+</script>
+</body>
+</html>
