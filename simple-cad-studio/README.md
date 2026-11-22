@@ -1,4 +1,4 @@
-# Simple CAD Studio — v1.2
+# Simple CAD Studio — v1.3
 
 A lightweight, dependency-free browser CAD tool for dimensioned 2D layouts, basic extruded 3D solids, and modelled metric screw holes. Runs locally in Chrome, Edge or Firefox from **index.html**, with no backend, credentials, internet connection or installation.
 
@@ -7,16 +7,25 @@ A lightweight, dependency-free browser CAD tool for dimensioned 2D layouts, basi
 1. Open `index.html` in a browser (or use the GitHub Pages link).
 2. Choose **Rectangle**, **Circle** or another shape and drag to draw it. Select the object and set precise width, height, and extrusion in the Properties panel.
 3. Check **3D solid** to include the selected shape in STL output; uncheck it for a 2D-only shape. Closed shapes default to 3D solids.
-4. Choose **Screw hole** (O), then click *inside* a solid, or select a shape and use **Add screw hole** in Properties. Select the metric size, whether to model an internal thread, the hole depth and coordinates.
+4. Choose **Screw hole** (O) or click **Place screw hole on canvas** in a solid’s Properties. Hover over the shape to see the placement crosshair; **click the exact center of your hole**, then select the metric size, hole type and depth. Turn off **Snap** for sub-grid placement. Move existing holes by **dragging their purple ring/crosshair** or use the hole’s **Move** button to click a new position.
 5. Click **3D preview** to inspect, then **Export → STL** for 3D printing, or save a local editable `.cad.json` project with **Save to computer**.
 
 You can open the included `sample-design.cad.json` or `sample-threaded-plate.cad.json` with the app's **Open** button.
+
+## Version 1.3 additions — precise hole placement and correctly oriented 3D view
+
+- **Click-to-place screw holes:** Choose **Screw hole** (O), hover on any visible 3D solid, then click the desired center. A green crosshair shows a valid location; red means too close to an edge or another hole. Hole settings open *after* you choose the location. Labels and empty-looking areas of shapes no longer prevent geometric hit testing.
+- **Drag an existing hole:** In **Select** mode, grab the purple ring/crosshair and drag to reposition. The hole will snap to the grid if snapping is enabled. Click the purple target without dragging to edit its size, pitch mode or depth.
+- **Move via Properties:** Each hole has **Move**, **Edit**, and **Remove** controls. **Move** returns you to the canvas to click a new center in the same solid. Escape cancels placement. If a move would overlap another hole or cross the edge, the app refuses it rather than committing invalid geometry.
+- **Holes travel with their solid:** Moving a shape by dragging or entering X/Y in Properties, and duplicating a solid, now preserves the hole positions relative to its parent shape. Rotating a shape preserves the hole arrangement.
+- **Upright 3D preview:** Camera projection now correctly views the extruded **+Z top face** from above, with walls extending downward on screen. You can still drag to orbit or scroll to zoom.
+- **Export separation:** Interactive placement rings and guides are editor-only and never appear in SVG or STL exports. STL uses the newly positioned holes.
 
 ## Version 1.2 additions
 
 - **Grab and pan:** Dedicated **Hand / Pan** tool (H), grab empty workspace while Select is active, Space + drag, or middle-button drag. Mouse wheel zooms around the pointer. Fit/zoom buttons remain available.
 - **3D solid toggle:** Each closed 2D object can be included or excluded from STL and 3D preview. Extrusion depth is set per solid; SVG and DXF still retain the 2D outlines.
-- **Screw holes:** M2, M2.5, M3, M4, M5, M6, M8, and M10 coarse metric presets. Enter the blind hole/thread depth or check **Through entire solid**, plus exact hole center X/Y and a radial print allowance in millimeters.
+- **Screw holes:** M2, M2.5, M3, M4, M5, M6, M8, and M10 coarse metric presets. Choose the center on the canvas, or edit the precise X/Y coordinates in the dialog. Enter blind-hole/thread depth or choose **Through entire solid**, plus radial print allowance in millimeters.
 - **Hole options:** **Modeled internal thread** (a true 3D helical cavity cut into the solid), **Tap-drill** (plain smooth hole sized for tapping after printing), or **Clearance** (smooth larger hole for screw passage).
 - **Multiple holes per solid:** Add, edit, or delete holes through the Properties panel. Hole positions follow the parent shape when the shape moves or rotates; project JSON saves all hole specifications.
 - **Exports:** STL now creates continuous solid boundaries with blind and through cylindrical/helically threaded holes. DXF and SVG include hole-opening circles; dimension lines and auto-labels can still be excluded with **Outlines only**.
@@ -55,4 +64,4 @@ This is **not** a full parametric CAD or industrial solid-modeling kernel. It su
 
 ## Testing
 
-The v1.2 STL outputs were checked using independent mesh validation. Through and blind helical holes, multiple holes in one solid, and rotated rectangles, rounded rectangles, circles, hexagons, ellipses and triangles exported as watertight, consistently wound positive-volume models in tested cases. Existing JSON, PNG, SVG, DXF and STL export regression tests also passed.
+The v1.2 STL outputs were checked using independent mesh validation. The v1.3 regression suite additionally checked pointer-based placement, visual placement guides, dragging holes, inspector-based moving, invalid-position rejection, saving/reopening, shape movement/duplication, editor-handle exclusion from SVG, and the upright 3D preview. Through and blind helical holes, multiple holes in one solid, and rotated rectangles, rounded rectangles, circles, hexagons, ellipses and triangles exported as watertight, consistently wound positive-volume models in tested cases. Existing JSON, PNG, SVG, DXF and STL export regression tests also passed.
