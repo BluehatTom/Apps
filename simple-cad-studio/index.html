@@ -43,7 +43,7 @@
   .layerempty{color:var(--muted);font-size:12px;line-height:1.6;padding:5px 1px}
   .stage{position:relative;min-width:0;overflow:hidden;background:#fafcff}
   #cadSvg{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair;user-select:none}
-  #cadSvg.selecting{cursor:default}#cadSvg.panning{cursor:grabbing}
+  #cadSvg.selecting{cursor:default}#cadSvg.grab-tool{cursor:grab}#cadSvg.panning{cursor:grabbing}
   .canvas-chip{position:absolute;left:16px;top:15px;background:#fff;border:1px solid #dfe6ef;border-radius:9px;box-shadow:0 4px 16px #192d4c10;padding:8px 11px;font-size:12px;color:#5c6980;pointer-events:none}
   .canvas-chip strong{color:#263c62}
   .zoom-tools{position:absolute;right:17px;bottom:18px;display:flex;gap:3px;background:white;border:1px solid var(--line);box-shadow:0 3px 14px #192d4c15;padding:4px;border-radius:9px}
@@ -61,7 +61,7 @@
   #defaultFill{height:38px;padding:3px;cursor:pointer}
   .actionrow{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}
   .actionrow .btn{font-size:12px;padding:7px 9px}
-  .smallnote{font-size:11px;color:#7b8aa0;margin-top:7px;line-height:1.55}
+  .hole-row{display:flex;gap:7px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}.hole-row strong{flex:1;font-size:12px}.hole-row .tinybtn{white-space:nowrap}.good-note{font-size:12px;color:#235a49;background:#edf8f4;padding:9px;border-radius:7px}.smallnote{font-size:11px;color:#7b8aa0;margin-top:7px;line-height:1.55}
   .divider{height:1px;background:var(--line);margin:14px 0}
   .quick-dim{position:absolute;z-index:20;width:120px;padding:7px 9px;border:2px solid var(--blue);border-radius:8px;background:#fff;box-shadow:0 5px 20px #2441693b;font-weight:700;text-align:center}
   .quick-dim[hidden]{display:none}
@@ -97,7 +97,7 @@
   </header>
   <nav class="tools" aria-label="Drawing tools">
     <div class="toolbar-group">
-      <button class="toolbtn active" data-tool="select" title="Select and move (V)" aria-pressed="true"><span class="glyph">↖</span><span class="word">Select</span></button>
+      <button class="toolbtn active" data-tool="select" title="Select and move (V)" aria-pressed="true"><span class="glyph">↖</span><span class="word">Select</span></button><button class="toolbtn" data-tool="hand" title="Grab and drag workspace (H); also drag empty workspace" aria-pressed="false"><span class="glyph">✋</span><span class="word">Hand / Pan</span></button>
       <button class="toolbtn" data-tool="rect" title="Rectangle (R)" aria-pressed="false"><span class="glyph">▭</span><span class="word">Rectangle</span></button>
       <button class="toolbtn" data-tool="roundRect" title="Rounded rectangle" aria-pressed="false"><span class="glyph">▢</span><span class="word">Rounded</span></button>
       <button class="toolbtn" data-tool="circle" title="Circle (C)" aria-pressed="false"><span class="glyph">◯</span><span class="word">Circle</span></button>
@@ -108,7 +108,7 @@
       <button class="toolbtn" data-tool="text" title="Text (T)" aria-pressed="false"><span class="glyph">T</span><span class="word">Text</span></button>
     </div>
     <div class="tooldivider" aria-hidden="true"></div>
-    <button class="toolbtn" data-tool="dimension" title="Measure between two points (D)" aria-pressed="false"><span class="glyph">↔</span><span class="word">Measure</span></button>
+    <button class="toolbtn" data-tool="dimension" title="Measure between two points (D)" aria-pressed="false"><span class="glyph">↔</span><span class="word">Measure</span></button><button class="toolbtn" data-tool="hole" title="Add metric screw hole to a 3D solid (O)" aria-pressed="false"><span class="glyph">⊙</span><span class="word">Screw hole</span></button>
     <div class="push"></div>
     <button class="btn" id="previewBtn" title="Inspect solid extrusions in 3D">◇ 3D preview</button>
   </nav>
@@ -130,9 +130,9 @@
         <div id="layers" aria-label="Object list"></div>
       </div>
       <div class="section hint">
-        <strong>Quick start</strong><br>Choose a shape, then click and drag on the canvas. Select a shape to edit its exact measurements, or click a blue dimension value to change its size. Drag the shape to reposition it. Use <strong>Measure</strong> to draw a distance between two points. Change the selected object’s background color in <strong>Properties</strong>. Use <strong>Save to computer</strong> for an editable local file.
+        <strong>Quick start</strong><br>Choose a shape, then click and drag on the canvas. Select a shape to edit its exact measurements, or click a blue dimension value to change its size. Drag the shape to reposition it. Drag empty canvas, use the <strong>Hand</strong> tool, or hold Space to pan. Select a solid shape and choose <strong>Screw hole</strong> to position an M3/M4/etc. tapped hole. Use <strong>Measure</strong> to draw a distance between two points. Change the selected object’s background color in <strong>Properties</strong>. Use <strong>Save to computer</strong> for an editable local file.
         <div class="divider"></div>
-        <strong>Shortcuts</strong><br>V select · R rectangle · C circle · L line · T text · D measure · Delete remove · Ctrl+Z undo · Wheel zoom · Space+drag pan
+        <strong>Shortcuts</strong><br>V select · H hand/pan · O screw hole · R rectangle · C circle · L line · T text · D measure · Delete remove · Ctrl+Z undo · Wheel zoom · Space+drag pan
       </div>
     </aside>
     <div class="stage" id="stage">
@@ -164,12 +164,12 @@
     <div class="export-grid">
       <button class="export-card" data-export="svg"><strong>SVG · Vector drawing</strong><span>Scale-accurate outlines and text for laser cutters, graphics, and CAD.</span></button>
       <button class="export-card" data-export="dxf"><strong>DXF · CAD drawing</strong><span>Editable outlines, lines, and labels for AutoCAD-style software.</span></button>
-      <button class="export-card" data-export="stl"><strong>STL · 3D printing</strong><span>Closed 2D shapes extruded into printable 3D solids. No text or booleans.</span></button>
+      <button class="export-card" data-export="stl"><strong>STL · 3D printing</strong><span>Extruded solid shapes with real cylindrical or helical screw-hole cavities.</span></button>
       <button class="export-card" data-export="png"><strong>PNG · Image</strong><span>High-resolution preview on a white background.</span></button>
       <button class="export-card" data-export="json"><strong>Save project to computer</strong><span>Download an editable .cad.json file containing all shapes, colors, and dimensions.</span></button>
       <button class="export-card" data-export="print"><strong>Print / Save PDF</strong><span>Print a clean vector layout or use the browser's “Save as PDF”.</span></button>
     </div>
-    <div class="smallnote">The outlines-only option applies to SVG, DXF, PNG and print/PDF. STL only contains closed shapes (rectangles, circles, etc.) with their specified extrusion depths; text, dimension marks, open lines and measurement annotations are not embossed. Overlapping shapes are not unioned. Use a slicer to inspect printed parts.</div>
+    <div class="smallnote">The outlines-only option applies to SVG, DXF, PNG and print/PDF. STL includes only shapes marked as 3D solids, with hole cavities cut out. Modeled internal threads are a 60°-profile-inspired printable approximation of metric coarse threads, not manufacturing-certified threads. Check fit, extrusion tolerances, and slicer repair warnings. Overlapping separate solids are not unioned; labels and dimensions do not become 3D geometry.</div>
     <div class="modal-foot"><button class="btn" data-close="exportModal">Close</button></div>
   </div>
 </div>
@@ -177,8 +177,21 @@
   <div class="dialog">
     <div class="dialog-header"><h2 id="previewHeading">3D extrusion preview</h2><button class="close" data-close="previewModal" aria-label="Close preview">✕</button></div>
     <canvas id="previewCanvas" width="950" height="600" aria-label="Interactive 3D solid preview"></canvas>
-    <div class="smallnote">Drag to orbit. Scroll to zoom. Extrusion depth is editable per shape in the Properties panel. This previews printable geometry, not 3D lettering.</div>
+    <div class="smallnote">Drag to orbit. Scroll to zoom. Extrusion depth, solid status, and holes are editable in Properties. The preview uses the same solid and hole geometry as STL. Text is not embossed.</div>
     <div class="modal-foot"><button class="btn" data-close="previewModal">Close</button><button class="btn primary" id="previewStlBtn">Export STL</button></div>
+  </div>
+</div>
+<div class="modal" id="holeModal" hidden role="dialog" aria-modal="true" aria-labelledby="holeHeading">
+  <div class="dialog" style="width:min(475px,100%)">
+    <div class="dialog-header"><h2 id="holeHeading">Screw hole</h2><button class="close" data-close="holeModal" aria-label="Close screw hole dialog">✕</button></div>
+    <div class="hint">A hole cuts into the selected 3D solid at the position clicked. <strong>Modeled thread</strong> creates an actual helical cavity in the STL; <strong>Tap-drill</strong> makes an untapped hole intended for subsequent tapping.</div>
+    <div class="rowfields" style="margin-top:14px"><div class="field"><label for="holeSpec">Metric screw</label><select id="holeSpec"><option>M2</option><option>M2.5</option><option selected>M3</option><option>M4</option><option>M5</option><option>M6</option><option>M8</option><option>M10</option></select></div><div class="field"><label for="holeMode">Hole type</label><select id="holeMode"><option value="modeled">Modeled internal thread</option><option value="tap">Tap-drill (unthreaded)</option><option value="clearance">Clearance hole</option></select></div></div>
+    <div class="rowfields"><div class="field"><label for="holeDepth">Hole / thread length (<span class="unit-slot">mm</span>)</label><input id="holeDepth" type="number" min="0.1" step="0.1" value="3"></div><div class="field"><label for="holeAllowance">Radial print allowance (mm)</label><input id="holeAllowance" type="number" min="0" max="0.5" step="0.05" value="0.15"></div></div>
+    <label class="checkrow"><input id="holeThrough" type="checkbox" checked> Through entire solid (overrides length)</label>
+    <div class="rowfields"><div class="field"><label for="holeX">Hole center X (<span class="unit-slot">mm</span>)</label><input id="holeX" type="number" step="any"></div><div class="field"><label for="holeY">Hole center Y (<span class="unit-slot">mm</span>)</label><input id="holeY" type="number" step="any"></div></div>
+    <div class="good-note" id="holeSpecsInfo" aria-live="polite"></div>
+    <div class="smallnote">Metric coarse pitch; modeled 60°-style helical threads are an approximation for FDM prototyping, not a certified ISO profile. Verify dimensions and test fit before using in a load-bearing assembly.</div>
+    <div class="modal-foot"><button class="btn" data-close="holeModal">Cancel</button><button class="btn primary" id="applyHoleBtn">Apply hole</button></div>
   </div>
 </div>
 <script>
@@ -188,10 +201,11 @@ const $=id=>document.getElementById(id), svg=$('cadSvg'), drawing=$('drawingLaye
 const STORAGE='simple-cad-studio-v1', SVGNS='http://www.w3.org/2000/svg';
 const COLORS=['#bcd4fd','#ffffff','#f6d6b4','#ffd6e7','#fce899','#c6f2dc','#d8d3fa','#a4d8ed','#d6dce6','#2d3748'];
 const E_TYPES=['rect','roundRect','circle','ellipse','triangle','hex','line','text','dimension'];
-const shapeNames={rect:'Rectangle',roundRect:'Rounded rectangle',circle:'Circle',ellipse:'Ellipse',triangle:'Triangle',hex:'Hexagon',line:'Line',text:'Text',dimension:'Measurement'};
+const THREADS={M2:[2,.4,1.6,2.4], 'M2.5':[2.5,.45,2.05,2.9],M3:[3,.5,2.5,3.4],M4:[4,.7,3.3,4.5],M5:[5,.8,4.2,5.5],M6:[6,1,5,6.6],M8:[8,1.25,6.8,9],M10:[10,1.5,8.5,11]};
+const shapeNames={hand:'Hand / Pan',hole:'Screw hole',rect:'Rectangle',roundRect:'Rounded rectangle',circle:'Circle',ellipse:'Ellipse',triangle:'Triangle',hex:'Hexagon',line:'Line',text:'Text',dimension:'Measurement'};
 const symbols={rect:'▭',roundRect:'▢',circle:'◯',ellipse:'⬭',triangle:'△',hex:'⬡',line:'╱',text:'T',dimension:'↔'};
 const model={name:'Untitled design',units:'mm',grid:true,snap:true,snapSize:5,defaultFill:'#bcd4fd',autoLabel:true,autoDims:true,showDims:true,items:[]};
-let selected=null, tool='select', action=null, spaceHeld=false, viewport={x:-12,y:-12,w:340,h:225}, lastPointer={x:0,y:0}, history=[],histIndex=-1, saveTimer, toastTimer;
+let selected=null, editingHole=null, tool='select', action=null, spaceHeld=false, viewport={x:-12,y:-12,w:340,h:225}, lastPointer={x:0,y:0}, history=[],histIndex=-1, saveTimer, toastTimer;
 let previewYaw=-0.65,previewPitch=0.62,previewZoom=1,previewDrag=null;
 const num=(v,d=0)=>{const n=Number(v);return Number.isFinite(n)?n:d};
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -242,7 +256,7 @@ function fitDrawing(){const b=viewBounds(true),rect=svg.getBoundingClientRect(),
 function resetViewport(){const rect=svg.getBoundingClientRect(),ratio=rect.width/Math.max(rect.height,1);const w=Math.max(280,210*ratio);viewport={x:-w*.08,y:-210*.12,w,h:w/ratio};renderStage();}
 function zoom(factor,cx=null,cy=null){const rect=svg.getBoundingClientRect(),origin=cx??rect.left+rect.width/2,oy=cy??rect.top+rect.height/2;const old=point({clientX:origin,clientY:oy});const w=clamp(viewport.w*factor,10,6000),h=w/Math.max(.1,rect.width/Math.max(1,rect.height));const fx=(origin-rect.left)/rect.width,fy=(oy-rect.top)/rect.height;viewport={x:old.x-fx*w,y:old.y-fy*h,w,h};renderStage();}
 function addItem(type,x,y){const count=model.items.filter(i=>i.type===type).length+1;
- const item={id:makeId(),type,name:`${shapeNames[type]} ${count}`,x,y,w:1,h:1,rotation:0,stroke:'#26446e',fill:model.defaultFill,strokeWidth:0.6,label:((isSolid({type})||type==='line')&&model.autoLabel)?`${shapeNames[type]} ${count}`:'',labelSize:5,labelColor:'#19345b',showDimensions:(isSolid({type})&&model.autoDims),depth:3,hidden:false};
+ const item={id:makeId(),type,name:`${shapeNames[type]} ${count}`,x,y,w:1,h:1,rotation:0,stroke:'#26446e',fill:model.defaultFill,strokeWidth:0.6,label:((isSolid({type})||type==='line')&&model.autoLabel)?`${shapeNames[type]} ${count}`:'',labelSize:5,labelColor:'#19345b',showDimensions:(isSolid({type})&&model.autoDims),depth:3,solid3d:isSolid({type}),holes:[],hidden:false};
  if(type==='line'){item.strokeWidth=.65;item.fill='none';}
  if(type==='text'){item.label='Text';item.w=0;item.h=0;item.labelSize=9;}
  if(type==='dimension'){item.x2=x+1;item.y2=y;item.label='';item.showDimensions=false;}
@@ -274,9 +288,16 @@ function autoDimensionSVG(i){if(!i.showDimensions||!model.showDims||!isSolid(i))
  result+=`<text data-dim-prop="h" style="cursor:text" transform="rotate(90 ${vx+5.8} ${vy})" x="${vx+5.8}" y="${vy}" text-anchor="middle" dominant-baseline="middle" fill="${stroke}" stroke="white" stroke-width="2" paint-order="stroke" font-family="Arial,sans-serif" font-size="${font}">${escapeXML(unitString(h))}</text>`;
  return result;
 }
+function holeTopRadius(h){const t=THREADS[h.spec]||THREADS.M3,allow=num(h.allowance,0);if(h.mode==='clearance')return t[3]/2+allow;if(h.mode==='tap')return t[2]/2+allow;return (t[0]-1.082532*t[1])/2+allow;}
+function holeMarkup(i,outlinesOnly=false){if(!isSolid(i))return '';
+ return (i.holes||[]).map(h=>{const r=holeTopRadius(h),outline=`<circle cx="${h.x}" cy="${h.y}" r="${r}" fill="${outlinesOnly?'none':'#fff'}" stroke="#8056aa" stroke-width="0.55"/>`;
+ return outline+(outlinesOnly?'':`<g pointer-events="none"><circle cx="${h.x}" cy="${h.y}" r="${r*.71}" fill="none" stroke="#8962ad" stroke-width="0.35" stroke-dasharray="1.3 1.2"/><text x="${h.x+r+2}" y="${h.y-r-1.8}" font-size="3.5" fill="#76559a" stroke="#fff" stroke-width="1" paint-order="stroke">${escapeXML(h.spec)}</text></g>`);
+ }).join('');
+}
 function itemMarkup(i,forExport=false,outlinesOnly=false){if(i.hidden||(outlinesOnly&&!isSolid(i)&&i.type!=='line'))return '';
  const transform=isSolid(i)||i.type==='line'?` transform="rotate(${i.rotation||0} ${i.x+i.w/2} ${i.y+i.h/2})"`:'';
  let content=shapeSVG(i,outlinesOnly);
+ if(isSolid(i))content+=holeMarkup(i,outlinesOnly);
  if(isSolid(i)&&i.label&&!outlinesOnly)content+=`<text x="${i.x+i.w/2}" y="${i.y+i.h/2}" text-anchor="middle" dominant-baseline="middle" font-family="Arial,sans-serif" font-weight="600" font-size="${i.labelSize}" fill="${escapeXML(i.labelColor)}" pointer-events="none">${escapeXML(i.label)}</text>`;
  if(i.type==='line'&&i.label&&!outlinesOnly)content+=`<text x="${i.x+i.w/2}" y="${i.y+i.h/2-2}" text-anchor="middle" font-family="Arial,sans-serif" font-size="${i.labelSize}" fill="${escapeXML(i.labelColor)}" pointer-events="none">${escapeXML(i.label)}</text>`;
  if(!outlinesOnly)content+=autoDimensionSVG(i);
@@ -306,7 +327,7 @@ function renderStage(){
   else if(i.type==='dimension'){h=`<line x1="${i.x}" y1="${i.y}" x2="${i.x2}" y2="${i.y2}" stroke="${col}" stroke-width="${lineW}" stroke-dasharray="${5*pw} ${3*pw}" pointer-events="none"/>`;}
  }
  handles.innerHTML=h;
- svg.classList.toggle('selecting',tool==='select');
+ svg.classList.toggle('selecting',tool==='select');svg.classList.toggle('grab-tool',tool==='hand'&&!action);svg.classList.toggle('panning',action?.kind==='pan');
  $('canvasChip').innerHTML=`<strong>${model.units}</strong> · snap ${u(model.snapSize)} ${model.units} ${model.snap?'on':'off'}`;
  $('statusZoom').textContent=`${Math.round(320/viewport.w*100)}%`;
 }
@@ -339,7 +360,12 @@ function renderInspector(){const node=$('inspector'),i=current();
    html+=`<label class="checkrow"><input type="checkbox" data-prop="showDimensions" ${i.showDimensions?'checked':''}> Show width and height dimensions</label>`;
    html+=`<div class="divider"></div><h2>Shape and material</h2><div class="field"><label for="prop_stroke">Outline color</label><input type="color" id="prop_stroke" data-prop="stroke" value="${escapeHTML(i.stroke)}"></div>`;
    html+=`<div class="rowfields">${field('Outline width (mm)','strokeWidth',i.strokeWidth)}${field(`Extrude (${model.units})`,'depth',u(i.depth))}</div>`;
-   html+=`<div class="smallnote">Extrusion depth controls STL output. It does not change SVG/DXF dimensions.</div>`;
+   html+=`<label class="checkrow"><input type="checkbox" data-prop="solid3d" ${i.solid3d!==false?'checked':''}> <strong>3D solid</strong> (include in STL)</label>`;
+   html+=`<div class="smallnote">Unchecked = 2D drawing only. A solid extrudes to the thickness above; attached holes subtract material from that solid.</div>`;
+   html+=`<div class="divider"></div><h2>Screw holes (${(i.holes||[]).length})</h2><div class="smallnote">Select the Screw hole tool and click inside this shape, or add a hole at the center.</div>`;
+   html+=`<div class="actionrow"><button class="btn" id="addHoleBtn" ${i.solid3d===false?'disabled title="Turn on 3D solid first"':''}>⊙ Add screw hole</button></div>`;
+   for(const h of (i.holes||[])){html+=`<div class="hole-row"><strong>${escapeHTML(h.spec)} · ${h.mode==='modeled'?'Threaded':h.mode==='tap'?'Tap drill':'Clearance'} · ${h.through?'Through':unitString(h.depth)+' deep'}</strong><button type="button" class="tinybtn" data-edit-hole="${h.id}">Edit</button><button type="button" class="tinybtn" data-del-hole="${h.id}">✕</button></div>`;}
+   html+=`<div class="smallnote">Purple rings indicate hole openings. Preview 3D or export STL to inspect helical cavities.</div>`;
   }else if(i.type==='line')html+=field('Line thickness (mm)','strokeWidth',i.strokeWidth);
  }
  html+=`<div class="divider"></div><div class="actionrow"><button class="btn" id="duplicateBtn">Duplicate</button><button class="btn" id="frontBtn">To front</button><button class="btn danger" id="deleteBtn">Delete</button></div>`;
@@ -363,7 +389,8 @@ function restore(s){let obj=JSON.parse(s);if(!obj||!Array.isArray(obj.items))thr
    stroke:/^#[0-9a-f]{6}$/i.test(i.stroke)?i.stroke:'#26446e',
    fill:/^#[0-9a-f]{6}$/i.test(i.fill)?i.fill:'#bcd4fd',
    labelColor:/^#[0-9a-f]{6}$/i.test(i.labelColor)?i.labelColor:'#19345b',
-   strokeWidth:clamp(num(i.strokeWidth,.6),.05,10),depth:clamp(num(i.depth,3),.2,100),
+   strokeWidth:clamp(num(i.strokeWidth,.6),.05,10),depth:clamp(num(i.depth,3),.2,100),solid3d:i.solid3d!==false,
+   holes:Array.isArray(i.holes)?i.holes.slice(0,24).filter(h=>h&&THREADS[h.spec]).map(h=>({id:typeof h.id==='string'&&/^i[a-z0-9]{3,40}$/i.test(h.id)?h.id:makeId(),spec:h.spec,mode:['modeled','tap','clearance'].includes(h.mode)?h.mode:'modeled',x:clamp(num(h.x),-100000,100000),y:clamp(num(h.y),-100000,100000),depth:clamp(num(h.depth,3),.1,100),through:!!h.through,allowance:clamp(num(h.allowance,0),0,.5)})):[],
    labelSize:clamp(num(i.labelSize,5),1,100),showDimensions:!!i.showDimensions,hidden:!!i.hidden
   }))});
  selected=null;syncSettings();render();}
@@ -389,10 +416,36 @@ function resizeItem(i,how,start,p,original){
  if(i.type==='circle'){const side=Math.max(w,h);w=side;h=side;if(how.includes('w'))x=ax-side;if(how.includes('n'))y=ay-side;}
  i.x=round(x);i.y=round(y);i.w=round(w);i.h=round(h);
 }
+function unrotatePoint(p,i){const t=-num(i.rotation)*Math.PI/180,c=itemCenter(i),dx=p.x-c.x,dy=p.y-c.y;return{x:c.x+dx*Math.cos(t)-dy*Math.sin(t),y:c.y+dx*Math.sin(t)+dy*Math.cos(t)};}
+function pointInPoly(p,poly){let inside=false;for(let j=0,k=poly.length-1;j<poly.length;k=j++){const a=poly[j],b=poly[k];if((a.y>p.y)!==(b.y>p.y)&&p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x)inside=!inside;}return inside;}
+function pointSegmentDistance(p,a,b){const dx=b.x-a.x,dy=b.y-a.y,t=clamp(((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy||1),0,1);return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy);}
+function holeMaxRadius(h){const t=THREADS[h.spec];return (h.mode==='clearance'?t[3]:h.mode==='tap'?t[2]:t[0])/2+num(h.allowance,0);}
+function validateHoles(i,holes=i.holes||[]){const poly=polygon(i,80);for(const h of holes){if(!THREADS[h.spec])throw Error('Unknown screw size');if(!['modeled','tap','clearance'].includes(h.mode))throw Error('Unknown hole type');if(!h.through&&(h.depth<=0||h.depth>i.depth+.000001))throw Error(`${h.spec} depth exceeds solid thickness (${unitString(i.depth)})`);
+  const r=holeMaxRadius(h),p={x:h.x,y:h.y},edge=Math.min(...poly.map((q,k)=>pointSegmentDistance(p,q,poly[(k+1)%poly.length])));
+  if(!pointInPoly(p,poly)||edge<r+.25)throw Error(`${h.spec} hole is too close to the edge. Increase the shape size or move the hole.`);
+  for(const other of holes){if(other===h)break;const d=Math.hypot(h.x-other.x,h.y-other.y);if(d<holeMaxRadius(h)+holeMaxRadius(other)+.4)throw Error('Screw holes overlap. Move them farther apart.');}
+ }}
+function updateHoleInfo(){const t=THREADS[$('holeSpec').value]||THREADS.M3,mode=$('holeMode').value;const rough=(t[0]-1.082532*t[1]).toFixed(2);
+ $('holeSpecsInfo').textContent=`${$('holeSpec').value} coarse · pitch ${t[1]} mm · tap drill ${t[2]} mm · clearance ${t[3]} mm · modeled thread minor diameter ≈ ${rough} mm. ${mode==='modeled'?'3D STL includes an actual helical internal-thread surface.':mode==='tap'?'STL uses a smooth tap-drill hole, for physical tapping after printing.':'STL uses a smooth clearance hole.'}`;
+ $('holeDepth').disabled=$('holeThrough').checked;
+}
+function openHoleDialog(i,p,h=null){if(!isSolid(i)||i.solid3d===false){showToast('Enable 3D solid in Properties first');return;}
+ editingHole={itemId:i.id,holeId:h?.id||null};$('holeHeading').textContent=h?`Edit ${h.spec} screw hole`:'Add screw hole';$('holeSpec').value=h?.spec||'M3';$('holeMode').value=h?.mode||'modeled';$('holeDepth').value=u(h?.depth??i.depth);$('holeThrough').checked=h?.through??false;$('holeAllowance').value=h?.allowance??.15;
+ $('holeX').value=u(h?.x??snap(p.x));$('holeY').value=u(h?.y??snap(p.y));document.querySelectorAll('.unit-slot').forEach(e=>e.textContent=model.units);updateHoleInfo();$('holeModal').hidden=false;$('holeSpec').focus();}
+['holeSpec','holeMode','holeThrough'].forEach(id=>$(id).addEventListener('change',updateHoleInfo));
+$('applyHoleBtn').onclick=()=>{if(!editingHole)return;const i=itemById(editingHole.itemId);if(!i){closeDialogs();return;}
+ const hx=Number($('holeX').value),hy=Number($('holeY').value),len=Number($('holeDepth').value),a=Number($('holeAllowance').value);
+ if(![hx,hy,len,a].every(Number.isFinite)||len<=0||a<0||a>.5){showToast('Enter valid coordinates, depth and allowance');return;}
+ const h={id:editingHole.holeId||makeId(),x:round(hx*ux(),5),y:round(hy*ux(),5),spec:$('holeSpec').value,mode:$('holeMode').value,depth:round(len*ux(),5),through:$('holeThrough').checked,allowance:round(a,3)};
+ const test=(i.holes||[]).filter(t=>t.id!==h.id).concat(h);
+ try{validateHoles(i,test);if(test.length>24)throw Error('Limit 24 holes per solid');}catch(err){showToast(err.message);return;}
+ i.holes=test;selected=i.id;closeDialogs();setTool('select');commit();render();showToast(`${h.spec} ${h.mode==='modeled'?'modeled thread':h.mode==='tap'?'tap-drill':'clearance'} hole added`);
+};
 svg.addEventListener('pointerdown',e=>{
  if(e.button!==0&&e.button!==1)return;
  const p=point(e);lastPointer=p;
- if(spaceHeld||e.button===1){action={kind:'pan',start:{x:e.clientX,y:e.clientY},base:{...viewport}};svg.classList.add('panning');svg.setPointerCapture(e.pointerId);e.preventDefault();return;}
+ if(spaceHeld||e.button===1||tool==='hand'){action={kind:'pan',start:{x:e.clientX,y:e.clientY},base:{...viewport}};svg.classList.add('panning');svg.setPointerCapture(e.pointerId);e.preventDefault();return;}
+ if(tool==='hole'){const target=e.target.closest('[data-id]');const i=target?itemById(target.dataset.id):null;if(!i||!isSolid(i)||i.solid3d===false){showToast('Click inside a shape marked as a 3D solid');return;}selected=i.id;const c=unrotatePoint(p,i);openHoleDialog(i,c);render();return;}
  if(tool==='select'){
   const dimLabel=e.target.closest('[data-dim-prop]');
   if(dimLabel){const group=e.target.closest('[data-id]');if(group){selected=group.dataset.id;renderLayers();renderInspector();renderStatus();openQuickDimension(selected,dimLabel.dataset.dimProp,e.clientX,e.clientY);e.preventDefault();return;}}
@@ -400,7 +453,7 @@ svg.addEventListener('pointerdown',e=>{
   if(target?.dataset.handle&&itemById(id)){
     selected=id;const item=current();action={kind:'resize',id,handle:target.dataset.handle,start:p,original:structuredClone(item),moved:false};svg.setPointerCapture(e.pointerId);render();return;
   }
-  if(id&&itemById(id)&&!itemById(id).hidden){selected=id;action={kind:'move',id,start:p,original:structuredClone(current()),moved:false};svg.setPointerCapture(e.pointerId);}else{selected=null;}
+  if(id&&itemById(id)&&!itemById(id).hidden){selected=id;action={kind:'move',id,start:p,original:structuredClone(current()),moved:false};svg.setPointerCapture(e.pointerId);}else{selected=null;action={kind:'pan',start:{x:e.clientX,y:e.clientY},base:{...viewport}};svg.classList.add('panning');svg.setPointerCapture(e.pointerId);}
   render();return;
  }
  const sx=snap(p.x),sy=snap(p.y),i=addItem(tool,sx,sy);
@@ -422,7 +475,7 @@ svg.addEventListener('pointermove',e=>{
  }else if(action.kind==='resize'){action.moved=true;resizeItem(i,action.handle,action.start,p,action.original);}
  renderStage();renderStatus();
 });
-function finishAction(){if(!action)return;let a=action;action=null;svg.classList.remove('panning');
+function finishAction(){if(!action)return;let a=action;action=null;svg.classList.remove('panning');if(a.kind==='pan')renderStage();
  if(a.kind==='draw'){
   const i=itemById(a.id);
   if(i){if(i.type==='dimension'){
@@ -453,7 +506,7 @@ $('layers').addEventListener('click',e=>{const eye=e.target.closest('[data-eye-i
 $('layers').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.dataset.layerId){selected=e.target.dataset.layerId;render();}});
 $('inspector').addEventListener('change',e=>{
  const input=e.target.closest('[data-prop]');const i=current();if(!i||!input)return;const prop=input.dataset.prop;
- if(prop==='showDimensions')i[prop]=input.checked;
+ if(prop==='showDimensions'||prop==='solid3d')i[prop]=input.checked;
  else if(['name','label','labelColor','fill','stroke'].includes(prop))i[prop]=input.value;
  else{
   let value=num(input.value,NaN);if(!Number.isFinite(value)){showToast('Enter a valid number');renderInspector();return;}
@@ -472,11 +525,15 @@ $('inspector').addEventListener('input',e=>{const input=e.target.closest('[data-
  const p=input.dataset.prop;if(['label','name','fill','stroke','labelColor'].includes(p)){i[p]=input.value;if(p==='fill'&&$('fillCode'))$('fillCode').textContent=input.value.toUpperCase();renderStage();renderLayers();renderStatus();}
 });
 $('inspector').addEventListener('click',e=>{const i=current();if(!i)return;
+ const edit=e.target.closest('[data-edit-hole]'),del=e.target.closest('[data-del-hole]');
+ if(edit){const h=(i.holes||[]).find(h=>h.id===edit.dataset.editHole);if(h)openHoleDialog(i,{x:h.x,y:h.y},h);return;}
+ if(del){i.holes=(i.holes||[]).filter(h=>h.id!==del.dataset.delHole);commit();render();showToast('Screw hole removed');return;}
+ if(e.target.id==='addHoleBtn'){const c=itemCenter(i);openHoleDialog(i,c);return;}
  const swatch=e.target.closest('[data-fill-swatch]');
  if(swatch&&isSolid(i)){i.fill=swatch.dataset.fillSwatch;commit();render();return;}
 
  if(e.target.id==='deleteBtn'){model.items=model.items.filter(a=>a.id!==i.id);selected=null;commit();render();showToast('Object deleted');}
- if(e.target.id==='duplicateBtn'){const dup=structuredClone(i);dup.id=makeId();dup.name=i.name+' copy';dup.x+=12;dup.y+=12;if(i.type==='dimension'){dup.x2+=12;dup.y2+=12;}model.items.push(dup);selected=dup.id;commit();render();}
+ if(e.target.id==='duplicateBtn'){const dup=structuredClone(i);dup.id=makeId();dup.name=i.name+' copy';if(dup.holes)dup.holes.forEach(h=>h.id=makeId());dup.x+=12;dup.y+=12;if(i.type==='dimension'){dup.x2+=12;dup.y2+=12;}model.items.push(dup);selected=dup.id;commit();render();}
  if(e.target.id==='frontBtn'){model.items=model.items.filter(a=>a.id!==i.id);model.items.push(i);commit();render();}
 });
 function updateSetting(name,val){model[name]=val;commit();render();}
@@ -499,14 +556,14 @@ $('saveBtn').onclick=()=>downloadProject();$('openBtn').onclick=()=>$('fileInput
 $('fileInput').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;try{const data=await file.text();const obj=JSON.parse(data);if(!Array.isArray(obj.items))throw Error('Not a valid project');restore(data);commit();fitDrawing();showToast('Project opened');}catch(err){showToast(`Could not open project: ${err.message}`);}e.target.value='';});
 function isTyping(){const active=document.activeElement;return active&&(['INPUT','TEXTAREA','SELECT'].includes(active.tagName)||active.isContentEditable);}
 document.addEventListener('keydown',e=>{
- if(e.key==='Escape'){if(!$('exportModal').hidden||!$('previewModal').hidden){closeDialogs();return;}if(action&&action.kind==='draw'){model.items=model.items.filter(i=>i.id!==action.id);action=null;selected=null;render();}setTool('select');return;}
+ if(e.key==='Escape'){if(!$('exportModal').hidden||!$('previewModal').hidden||!$('holeModal').hidden){closeDialogs();return;}if(action&&action.kind==='draw'){model.items=model.items.filter(i=>i.id!==action.id);action=null;selected=null;render();}setTool('select');return;}
  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();downloadProject();return;}
  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();undo();return;}
  if((e.ctrlKey||e.metaKey)&&['y'].includes(e.key.toLowerCase())){e.preventDefault();redo();return;}
  if(isTyping())return;
  if(e.code==='Space'){spaceHeld=true;e.preventDefault();return;}
  if(['Delete','Backspace'].includes(e.key)&&current()){model.items=model.items.filter(i=>i.id!==selected);selected=null;commit();render();e.preventDefault();return;}
- const shortcut={v:'select',r:'rect',c:'circle',l:'line',t:'text',d:'dimension'}[e.key.toLowerCase()];if(shortcut){setTool(shortcut);e.preventDefault();}
+ const shortcut={v:'select',h:'hand',o:'hole',r:'rect',c:'circle',l:'line',t:'text',d:'dimension'}[e.key.toLowerCase()];if(shortcut){setTool(shortcut);e.preventDefault();}
 });
 document.addEventListener('keyup',e=>{if(e.code==='Space')spaceHeld=false;});
 window.addEventListener('blur',()=>{spaceHeld=false;});
@@ -527,6 +584,7 @@ function exportDXF(outlinesOnly=false){let ents=[],nextHandle=256;const pair=(co
  const txt=(string,x,y,height=5,rotation=0,layer='LABELS')=>{if(!string)return;ents.push(begin('TEXT',layer)+pair(10,round(x,5))+pair(20,round(-y,5))+pair(30,0)+pair(40,height)+pair(1,asciiSafe(string))+pair(50,-rotation)+pair(7,'STANDARD'));};
  for(const i of model.items){if(i.hidden)continue;
   if(isSolid(i)){
+    for(const h of i.holes||[]){const c=rotate({x:h.x,y:h.y},i);ents.push(begin('CIRCLE','HOLES')+pair(10,round(c.x,5))+pair(20,round(-c.y,5))+pair(30,0)+pair(40,round(holeTopRadius(h),5)));}
     if(i.type==='circle'&&Math.abs(i.w-i.h)<.001){let c=rotate(itemCenter(i),i);ents.push(begin('CIRCLE','OUTLINE')+pair(10,c.x)+pair(20,-c.y)+pair(30,0)+pair(40,i.w/2));}
     else poly(polygon(i,64).map(p=>rotate(p,i)));
     if(i.label&&!outlinesOnly)txt(i.label,...Object.values(rotate({x:i.x+i.w/2-i.label.length*i.labelSize*.24,y:i.y+i.h/2+i.labelSize*.32},i)),i.labelSize,i.rotation);
@@ -539,16 +597,67 @@ function exportDXF(outlinesOnly=false){let ents=[],nextHandle=256;const pair=(co
  let head='0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1015\n9\n$INSUNITS\n70\n4\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n';
  return head+ents.join('')+'0\nENDSEC\n0\nEOF\n';
 }
+// These solid meshes have real internal cavities: top/bottom annuli, inner threaded walls,
+// and (for blind holes) an internal floor. Voronoi cells split a convex host shape
+// into one-hole regions, with synchronized boundary divisions and no internal walls.
 function stlTriangles(){const tris=[];
- const face=(a,b,c)=>{let ux=b[0]-a[0],uy=b[1]-a[1],uz=b[2]-a[2],vx=c[0]-a[0],vy=c[1]-a[1],vz=c[2]-a[2];let nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx,mag=Math.hypot(nx,ny,nz)||1;tris.push({n:[nx/mag,ny/mag,nz/mag],v:[a,b,c]});};
- for(const i of model.items){if(!isSolid(i)||i.hidden)continue;
-  let pts=polygon(i,64).map(p=>rotate(p,i)).map(p=>({x:p.x,y:-p.y}));
-  if(signed(pts)<0)pts=pts.reverse();
-  const depth=clamp(num(i.depth,3),.2,100),n=pts.length;
-  if(n<3)continue;
-  const base=p=>[p.x,p.y,0],top=p=>[p.x,p.y,depth];
-  for(let j=1;j<n-1;j++){face(top(pts[0]),top(pts[j]),top(pts[j+1]));face(base(pts[0]),base(pts[j+1]),base(pts[j]));}
-  for(let j=0;j<n;j++){const a=pts[j],b=pts[(j+1)%n];face(base(a),base(b),top(b));face(base(a),top(b),top(a));}
+ const face=(a,b,c,col)=>{let u=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],v=[c[0]-a[0],c[1]-a[1],c[2]-a[2]],n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]],mag=Math.hypot(...n);if(mag<1e-9)return;if(tris.length>240000)throw Error('Too many mesh facets for browser export. Reduce modeled thread length or use Tap-drill holes.');tris.push({n:n.map(x=>x/mag),v:[a,b,c],col});};
+ const cross=(a,b)=>a.x*b.y-a.y*b.x;
+ const vec=(a,b)=>({x:b.x-a.x,y:b.y-a.y});
+ const at=(p,z)=>[p.x,p.y,z];
+ const clipHalfplane=(p,n,k)=>{const out=[];for(let j=0;j<p.length;j++){const a=p[j],b=p[(j+1)%p.length],da=k-(n.x*a.x+n.y*a.y),db=k-(n.x*b.x+n.y*b.y),ia=da>=-1e-8,ib=db>=-1e-8;
+ if(ia)out.push(a);if(ia!==ib){const t=da/(da-db);out.push({x:a.x+t*(b.x-a.x),y:a.y+t*(b.y-a.y)});}}return out;};
+ const onSegment=(p,a,b)=>{const d=vec(a,b),rel=vec(a,p),ll=d.x*d.x+d.y*d.y;return Math.abs(cross(d,rel))<1e-5*Math.sqrt(ll)&&rel.x*d.x+rel.y*d.y>=-1e-5&&rel.x*d.x+rel.y*d.y<=ll+1e-5;};
+ const rayHit=(c,ang,poly)=>{const d={x:Math.cos(ang),y:Math.sin(ang)};let best=Infinity;for(let j=0;j<poly.length;j++){const a=poly[j],b=poly[(j+1)%poly.length],e=vec(a,b),den=cross(d,e);if(Math.abs(den)<1e-12)continue;const ac=vec(c,a),t=cross(ac,e)/den,u=cross(ac,d)/den;if(t>1e-7&&u>=-1e-7&&u<=1+1e-7)best=Math.min(best,t);}if(!Number.isFinite(best))throw Error('Cannot locate hole boundary within host shape');return{x:c.x+best*d.x,y:c.y+best*d.y};};
+ const unique=p=>{const m=new Map();for(const a of p)m.set(`${Math.round(a.x*1e6)}:${Math.round(a.y*1e6)}`,a);return [...m.values()];};
+ for(const i of model.items){if(!isSolid(i)||i.hidden||i.solid3d===false)continue;
+  const depth=clamp(num(i.depth,3),.2,100),col=i.fill;
+  let outer=polygon(i,64).map(p=>rotate(p,i)).map(p=>({x:p.x,y:-p.y}));if(signed(outer)<0)outer.reverse();
+  const holes=i.holes||[];if(holes.length)validateHoles(i,holes);
+  if(!holes.length){const n=outer.length;if(n<3)continue;
+   for(let j=1;j<n-1;j++){face(at(outer[0],depth),at(outer[j],depth),at(outer[j+1],depth),col);face(at(outer[0],0),at(outer[j+1],0),at(outer[j],0),col);}
+   for(let j=0;j<n;j++){const a=outer[j],b=outer[(j+1)%n];face(at(a,0),at(b,0),at(b,depth),col);face(at(a,0),at(b,depth),at(a,depth),col);}continue;}
+  const centers=holes.map(h=>{const q=rotate({x:h.x,y:h.y},i);return{x:q.x,y:-q.y};});
+  const cells=centers.map((c,k)=>{let poly=outer.map(p=>({...p}));for(let q=0;q<centers.length;q++){if(q===k)continue;const o=centers[q],normal={x:o.x-c.x,y:o.y-c.y},limit=(o.x*o.x+o.y*o.y-c.x*c.x-c.y*c.y)/2;poly=clipHalfplane(poly,normal,limit);if(poly.length<3)throw Error('Overlapping holes cannot be partitioned');}return poly;});
+  const candidate=[];
+  cells.forEach((cell,j)=>{const c=centers[j];const angleSet=[];for(let q=0;q<64;q++)angleSet.push(q*2*Math.PI/64);cell.forEach(p=>angleSet.push(Math.atan2(p.y-c.y,p.x-c.x)));
+   angleSet.forEach(a=>candidate.push(rayHit(c,a,cell)));candidate.push(...cell);});
+  const allOuter=unique(candidate);
+  for(let k=0;k<holes.length;k++){
+   const h=holes[k],c=centers[k],cell=cells[k];
+   const ring=unique(allOuter.filter(p=>cell.some((a,j)=>onSegment(p,a,cell[(j+1)%cell.length]))));
+   ring.sort((a,b)=>Math.atan2(a.y-c.y,a.x-c.x)-Math.atan2(b.y-c.y,b.x-c.x));
+   if(ring.length<3)throw Error('Could not triangulate hole vicinity');
+   const angles=ring.map(p=>Math.atan2(p.y-c.y,p.x-c.x)),n=ring.length;
+   const rz=depth,low=h.through?0:Math.max(0,depth-h.depth),through=h.through||low<.00001;
+   const params=THREADS[h.spec],pitch=params[1],rMin=holeTopRadius(h),rMax=holeMaxRadius(h);
+   const innerRadius=(a,z)=>{if(h.mode!=='modeled')return rMin;
+    const phase=((a/(2*Math.PI)-(z-low)/pitch)%1+1)%1;
+    const fraction=phase<.125?1:phase<.5?1-(phase-.125)/.375:phase<.625?0:(phase-.625)/.375;
+    return rMin+(rMax-rMin)*fraction;
+   };
+   const inner=(j,z)=>({x:c.x+innerRadius(angles[j],z)*Math.cos(angles[j]),y:c.y+innerRadius(angles[j],z)*Math.sin(angles[j])});
+   // Flat top and underside, with boundary segments shared by adjacent Voronoi regions.
+   for(let j=0;j<n;j++){const q=(j+1)%n,a=ring[j],b=ring[q],ia=inner(j,depth),ib=inner(q,depth);
+    face(at(a,depth),at(b,depth),at(ib,depth),col);face(at(a,depth),at(ib,depth),at(ia,depth),col);
+    if(through){const a0=inner(j,0),b0=inner(q,0);face(at(a,0),at(b0,0),at(b,0),col);face(at(a,0),at(a0,0),at(b0,0),col);}
+    // Only the exterior silhouette receives a wall. Internal Voronoi borders are surfaces shared by caps only.
+    const mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
+    if(outer.some((v,t)=>onSegment(mid,v,outer[(t+1)%outer.length]))){face(at(a,0),at(b,0),at(b,depth),col);face(at(a,0),at(b,depth),at(a,depth),col);}
+   }
+   if(!through){ // Continuous flat bottom of the host cell and the bottom of its blind bore.
+    for(let j=0;j<n;j++)face(at(c,0),at(ring[(j+1)%n],0),at(ring[j],0),col);
+    const origin=at(c,low);for(let j=0;j<n;j++){const q=(j+1)%n;face(origin,at(inner(j,low),low),at(inner(q,low),low),col);}
+   }
+   const slices=h.mode==='modeled'?Math.max(8,Math.ceil((depth-low)/pitch*8)):1;
+   if(slices>900)throw Error(`${h.spec} thread is too long for modeled export. Shorten thread length or choose Tap-drill.`);
+   for(let zidx=0;zidx<slices;zidx++){
+    const z0=low+(depth-low)*zidx/slices,z1=low+(depth-low)*(zidx+1)/slices;
+    for(let j=0;j<n;j++){const q=(j+1)%n,a=inner(j,z0),b=inner(q,z0),aa=inner(j,z1),bb=inner(q,z1);
+     face(at(a,z0),at(aa,z1),at(bb,z1),col);face(at(a,z0),at(bb,z1),at(b,z0),col);
+    }
+   }
+  }
  }
  return tris;
 }
@@ -570,7 +679,7 @@ function exportPrint(outlinesOnly=false){const svgStr=exportSVG(outlinesOnly);co
  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHTML(model.name)}</title><style>@page{size:auto;margin:12mm}body{margin:0;font-family:Arial,sans-serif}svg{max-width:100%;max-height:90vh;width:auto;height:auto;display:block;margin:auto}header{font-size:14px;color:#445;padding:5px 0 10px}@media print{header{display:none}}</style></head><body><header>Press Ctrl+P and choose “Save as PDF”.</header>${svgStr.replace(/^<\?xml[^>]*>\s*/,'')}<script>window.onload=()=>setTimeout(()=>window.print(),300)<\/script></body></html>`;
  w.document.open();w.document.write(html);w.document.close();
 }
-function closeDialogs(){$('exportModal').hidden=true;$('previewModal').hidden=true;}
+function closeDialogs(){$('exportModal').hidden=true;$('previewModal').hidden=true;$('holeModal').hidden=true;editingHole=null;}
 $('exportBtn').onclick=()=>{model.name=$('projectName').value.trim()||model.name;commit();$('exportModal').hidden=false;};$('previewBtn').onclick=()=>openPreview();
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>$(b.dataset.close).hidden=true);
 document.querySelectorAll('.modal').forEach(m=>m.addEventListener('pointerdown',e=>{if(e.target===m)m.hidden=true;}));
@@ -585,22 +694,36 @@ document.querySelectorAll('[data-export]').forEach(b=>b.addEventListener('click'
   showToast(`${format.toUpperCase()} download started`);
  }catch(error){showToast(`Export failed: ${error.message}`);console.error(error);}
 }));
-function openPreview(){if(!model.items.some(i=>isSolid(i)&&!i.hidden)){showToast('Add a closed shape for a 3D preview');return;}$('previewModal').hidden=false;previewYaw=-.65;previewPitch=.65;previewZoom=1;renderPreview();}
+function openPreview(){if(!model.items.some(i=>isSolid(i)&&i.solid3d!==false&&!i.hidden)){showToast('Add a closed shape for a 3D preview');return;}$('previewModal').hidden=false;previewYaw=-.65;previewPitch=.65;previewZoom=1;renderPreview();}
 function shadeColor(hex,factor){const rgb=[1,3,5].map(n=>parseInt(hex.slice(n,n+2),16));return '#'+rgb.map(v=>Math.round(clamp(v*factor,0,255)).toString(16).padStart(2,'0')).join('');}
 function renderPreview(){if($('previewModal').hidden)return;const c=$('previewCanvas'),ctx=c.getContext('2d'),W=c.width,H=c.height;ctx.clearRect(0,0,W,H);
- let objects=model.items.filter(i=>isSolid(i)&&!i.hidden),allPts=objects.flatMap(i=>polygon(i,40).map(p=>rotate(p,i)));if(!allPts.length)return;
- const xs=allPts.map(p=>p.x),ys=allPts.map(p=>-p.y),depth=Math.max(3,...objects.map(i=>i.depth));const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),cx=(minX+maxX)/2,cy=(minY+maxY)/2;
+ let triangles;try{triangles=stlTriangles();}catch(err){showToast(`Preview unavailable: ${err.message}`);return;}
+ if(!triangles.length)return;
+ let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity,maxZ=0;for(const t of triangles)for(const q of t.v){minX=Math.min(minX,q[0]);maxX=Math.max(maxX,q[0]);minY=Math.min(minY,q[1]);maxY=Math.max(maxY,q[1]);maxZ=Math.max(maxZ,q[2]);}const cx=(minX+maxX)/2,cy=(minY+maxY)/2;
  const scale=clamp(Math.min(W/(Math.max(30,maxX-minX)*1.9),H/(Math.max(30,maxY-minY)*1.9))*previewZoom,.15,80);
- const project=(x,y,z)=>{let px=x-cx,py=y-cy,pz=z-depth/2,co=Math.cos(previewYaw),si=Math.sin(previewYaw),xx=px*co-py*si,yy=px*si+py*co,cop=Math.cos(previewPitch),sip=Math.sin(previewPitch);return {x:W/2+xx*scale,y:H/2-(yy*cop-pz*sip)*scale,d:yy*sip+pz*cop};};
- const faces=[];
- for(const i of objects){let pts=polygon(i,40).map(p=>rotate(p,i)).map(p=>({x:p.x,y:-p.y}));if(signed(pts)<0)pts.reverse();const z=i.depth;
-  const top=pts.map(p=>project(p.x,p.y,z)),bottom=pts.map(p=>project(p.x,p.y,0));
-  faces.push({pts:top,depth:top.reduce((s,p)=>s+p.d,0)/top.length,fill:i.fill});
-  for(let j=0;j<pts.length;j++){let k=(j+1)%pts.length;const q=[bottom[j],bottom[k],top[k],top[j]];let dx=pts[k].x-pts[j].x,dy=pts[k].y-pts[j].y,bright=.56+.22*Math.cos(Math.atan2(dy,dx)+previewYaw);faces.push({pts:q,depth:q.reduce((s,p)=>s+p.d,0)/4,fill:shadeColor(i.fill,bright+0.1)});}
+ const project=(x,y,z)=>{let px=x-cx,py=y-cy,pz=z-maxZ/2,co=Math.cos(previewYaw),si=Math.sin(previewYaw),xx=px*co-py*si,yy=px*si+py*co,cop=Math.cos(previewPitch),sip=Math.sin(previewPitch);return{x:W/2+xx*scale,y:H/2-(yy*cop-pz*sip)*scale,d:yy*sip+pz*cop};};
+ const faces=triangles.map(t=>{const points=t.v.map(v=>project(...v));const n=t.n,light=clamp(.68+.25*n[2]+.1*n[0]-.07*n[1],.42,1);return{pts:points,depth:points.reduce((a,p)=>a+p.d,0)/3,fill:shadeColor(t.col||'#bcd4fd',light)};});
+ faces.sort((a,b)=>a.depth-b.depth);
+ // Use mesh triangles without per-triangle outlines so the threaded surface remains visible without artificial grid lines.
+ for(const f of faces){ctx.beginPath();f.pts.forEach((p,j)=>j?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.fillStyle=f.fill;ctx.fill();ctx.strokeStyle=f.fill;ctx.lineWidth=.65;ctx.stroke();}
+ // Paint a seamless top surface using even-odd fill, leaving true apertures for screw holes.
+ // This avoids hairline seams caused by browser antialiasing between thousands of cap triangles.
+ for(const i of model.items.filter(i=>isSolid(i)&&i.solid3d!==false&&!i.hidden)){
+  const outline=polygon(i,80).map(p=>rotate(p,i)).map(p=>project(p.x,-p.y,i.depth));
+  const aperture=[];
+  for(const h of i.holes||[]){const t=THREADS[h.spec],bottom=h.through?0:Math.max(0,i.depth-h.depth),center=rotate({x:h.x,y:h.y},i),rMin=holeTopRadius(h),rMax=holeMaxRadius(h),pts=[];
+   for(let j=0;j<96;j++){const a=j*2*Math.PI/96;let r=rMin;
+    if(h.mode==='modeled'){const phase=((a/(2*Math.PI)-(i.depth-bottom)/t[1])%1+1)%1;const fraction=phase<.125?1:phase<.5?1-(phase-.125)/.375:phase<.625?0:(phase-.625)/.375;r=rMin+(rMax-rMin)*fraction;}
+    const rot=num(i.rotation)*Math.PI/180,x=center.x+r*Math.cos(a+rot),y=center.y+r*Math.sin(a+rot);
+    pts.push(project(x,-y,i.depth));
+   }aperture.push(pts);
+  }
+  ctx.beginPath();outline.forEach((q,j)=>j?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y));ctx.closePath();
+  for(const pts of aperture){pts.forEach((q,j)=>j?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y));ctx.closePath();}
+  ctx.fillStyle=shadeColor(i.fill,.92);ctx.fill('evenodd');
+  ctx.lineWidth=.9;ctx.strokeStyle=shadeColor(i.fill,.72);ctx.stroke();
  }
- faces.sort((a,b)=>b.depth-a.depth);
- for(const f of faces){ctx.beginPath();f.pts.forEach((p,j)=>j?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.fillStyle=f.fill;ctx.fill();ctx.strokeStyle='#375987';ctx.lineWidth=1.2;ctx.stroke();}
- ctx.font='19px system-ui';ctx.fillStyle='#64748b';ctx.fillText(`${objects.length} solid${objects.length===1?'':'s'} · mm`,18,H-18);
+ ctx.font='17px system-ui';ctx.fillStyle='#64748b';ctx.fillText(`${model.items.filter(i=>isSolid(i)&&i.solid3d!==false&&!i.hidden).length} solid(s) · mm · modeled holes`,18,H-18);
 }
 const preview=$('previewCanvas');preview.addEventListener('pointerdown',e=>{previewDrag={x:e.clientX,y:e.clientY,yaw:previewYaw,pitch:previewPitch};preview.setPointerCapture(e.pointerId);});
 preview.addEventListener('pointermove',e=>{if(!previewDrag)return;previewYaw=previewDrag.yaw+(e.clientX-previewDrag.x)/170;previewPitch=clamp(previewDrag.pitch+(e.clientY-previewDrag.y)/220,.08,1.5);renderPreview();});
@@ -610,7 +733,7 @@ $('previewStlBtn').onclick=()=>{try{download(exportSTL(),safeFilename()+'.stl','
 function init(){try{const saved=localStorage.getItem(STORAGE);if(saved){restore(saved);showToast('Your last drawing was restored');}}catch(e){console.warn('Could not restore saved project',e);}history=[snapshot()];histIndex=0;syncSettings();resetViewport();render();}
 init();
 // Exposed for automated QA and future extensions; no external dependencies.
-window.CADStudio={model,exportSVG,exportDXF,exportSTL,stlTriangles,downloadProject,fitDrawing,addShape:(type,x=20,y=20,w=60,h=40)=>{if(!E_TYPES.includes(type))throw Error('Unknown shape');const i=addItem(type,x,y);i.w=w;i.h=type==='circle'?w:h;commit();render();return i.id;},getSelection:()=>selected};
+window.CADStudio={model,exportSVG,exportDXF,exportSTL,stlTriangles,downloadProject,fitDrawing,addShape:(type,x=20,y=20,w=60,h=40)=>{if(!E_TYPES.includes(type))throw Error('Unknown shape');const i=addItem(type,x,y);i.w=w;i.h=type==='circle'?w:h;commit();render();return i.id;},getSelection:()=>selected,openHoleDialog,validateHoles,setTool};
 })();
 </script>
 </body>
