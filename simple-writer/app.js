@@ -5,9 +5,21 @@ const M=window.WriterModel, F=window.WriterFormats;
 if(!M||!F)throw Error('Simple Writer modules did not load.');
 const $ = id=>document.getElementById(id);
 const editor=$('editor'), name=$('docName'), status=$('saveStatus');
-const LOCAL='simple-writer-structured-v2', OLD='simple-writer-autosave-v1', HISTORY='simple-writer-history-v2';
+const LOCAL='simple-writer-structured-v2', OLD='simple-writer-autosave-v1', HISTORY='simple-writer-history-v2', THEME='simple-writer-appearance-v1';
 let doc=M.empty(), savedRange=null, selectedImage=null, saveTimer=null, historyTimer=null, findList=[], findPosition=0, issues=[], lastFormat='docx';
 let changedSinceSnapshot=false;
+const appearanceMode=$('appearanceMode');
+function setAppearance(mode){
+ const allowed=['light','dark','green','orange'];
+ const chosen=allowed.includes(mode)?mode:'light';
+ document.body.dataset.theme=chosen;
+ appearanceMode.value=chosen;
+ document.documentElement.style.colorScheme=chosen==='light'?'light':'dark';
+ try{localStorage.setItem(THEME,chosen)}catch{}
+ if(!$('a11yPanel').hidden)runAudit();
+}
+try { setAppearance(localStorage.getItem(THEME)||'light') } catch { setAppearance('light') }
+appearanceMode.addEventListener('change',e=>setAppearance(e.target.value));
 function announce(t){status.textContent=t;}
 function selectionInside(){const sel=window.getSelection();return !!(sel&&sel.rangeCount&&editor.contains(sel.getRangeAt(0).commonAncestorContainer));}
 function remember(){if(selectionInside()) savedRange=window.getSelection().getRangeAt(0).cloneRange();}
@@ -58,7 +70,7 @@ function auditData(){
  for(const h of heads){const n=Number(h.tagName[1]);if(!h.textContent.trim())issue('Issue','Empty heading','Add a descriptive heading or remove the heading style.',h);if(prev&&n>prev+1)issue('Issue','Skipped heading level',`Use Heading ${prev+1} before Heading ${n}.`,h);if(!prev&&n!==1)issue('Review','Document begins below Heading 1','Consider using Heading 1 for the top-level heading.',h);prev=n;}
  if(!heads.length&&(M.toText(doc).length>230))issue('Review','No structured headings','Consider using heading styles for a longer document.',editor);
  editor.querySelectorAll('a').forEach(a=>{const t=a.textContent.trim();if(!t)issue('Issue','Empty link','Add descriptive text to the link.',a);else if(/^(click here|here|more|read more|learn more|link)$/i.test(t))issue('Review','Unclear link label','Describe the link destination rather than “'+t+'”.',a);else if(/^https?:\/\/\S{40,}$/i.test(t))issue('Review','Long URL used as label','Use a short, descriptive label.',a);if(!M.safeUrl(a.href))issue('Issue','Invalid hyperlink target','Set a valid HTTPS, HTTP or email address.',a);});
- editor.querySelectorAll('img').forEach(img=>{if(!img.hasAttribute('alt'))issue('Issue','Missing image alternative text','Add an image description, or set empty alt text for a decorative image.',img);else if(!img.getAttribute('alt')&&!img.closest('figure')?.querySelector('figcaption'))issue('Review','Decorative image?','Confirm this image conveys no essential information.',img);});
+ editor.querySelectorAll('img').forEach(img=>{if(!img.hasAttribute('alt'))issue('Issue','Missing image alternative text','Add an image description, or set empty alt text for a decorative image.',img);else if(!img.getAttribute('alt')&&!img.hasAttribute('data-decorative'))issue('Review','Image needs a description or decorative designation','Provide meaningful alternative text or explicitly mark the image as decorative.',img);});
  editor.querySelectorAll('table').forEach(t=>{if(!t.querySelector('th'))issue('Issue','Table has no header cells','Use the first row as column headings when appropriate.',t);else if(!t.querySelector('th[scope]'))issue('Review','Table header association','Review row/column associations, especially for complex tables.',t);if(!t.querySelector('caption'))issue('Review','Table without caption','Consider a short descriptive caption.',t);});
  const styleSet=new Set();for(const el of editor.querySelectorAll('p,h1,h2,h3,blockquote,li,td,th,span,a')){
   if(!(el.textContent||'').trim())continue;
@@ -69,7 +81,12 @@ function auditData(){
  }
  return found;
 }
-function runAudit(){issues=auditData();const output=$('a11yItems');output.replaceChildren();const count=issues.filter(x=>x.level==='Issue').length;const review=issues.length-count;$('a11ySummary').textContent=`${count} potential ${count===1?'issue':'issues'} · ${review} to review`;
+function runAudit(){
+ // Audit the underlying document as it will be printed, not the retro display palette.
+ const visualTheme=document.body.dataset.theme;
+ if(visualTheme!=='light')document.body.dataset.theme='light';
+ try{issues=auditData();}finally{document.body.dataset.theme=visualTheme;}
+ const output=$('a11yItems');output.replaceChildren();const count=issues.filter(x=>x.level==='Issue').length;const review=issues.length-count;$('a11ySummary').textContent=`${count} potential ${count===1?'issue':'issues'} · ${review} to review`;
  if(!issues.length){const p=document.createElement('p');p.className='muted';p.textContent='No issues detected in these checks. Review reading order, meaning, page structure and color use manually.';output.append(p)}
  issues.forEach((it,i)=>{const section=document.createElement('section');section.className='issue '+(it.level==='Review'?'review':'');const sev=document.createElement('span');sev.textContent=it.level;const h=document.createElement('h3');h.textContent=(i+1)+'. '+it.title;const p=document.createElement('p');p.textContent=it.detail;const btn=document.createElement('button');btn.type='button';btn.textContent='Go to element';btn.addEventListener('click',()=>highlightTarget(it.node));section.append(sev,h,p,btn);output.append(section)});
 }
@@ -111,7 +128,11 @@ function insertNode(node){
  remember();change();
 }
 function insertHtmlMarkup(html){restore();document.execCommand('insertHTML',false,html);remember();change();}
-function imageProperties(img){if(!img)return;selectedImage=img;$('imageAlt').value=img.getAttribute('alt')||'';$('imageCaption').value=img.closest('figure')?.querySelector('figcaption')?.textContent||'';$('imageWidth').value=parseInt(img.style.width||img.getAttribute('width'),10)||440;$('imageDialog').showModal();}
+function imageProperties(img){if(!img)return;selectedImage=img;$('imageAlt').value=img.getAttribute('alt')||'';$('imageCaption').value=img.closest('figure')?.querySelector('figcaption')?.textContent||'';$('imageWidth').value=parseInt(img.style.width||img.getAttribute('width'),10)||440;
+ $('imageAlignment').value=img.closest('figure')?.dataset.align||'center';
+ $('imageDecorative').checked=img.getAttribute('alt')==='' && img.hasAttribute('data-decorative');
+ $('imageAlt').disabled=$('imageDecorative').checked;
+ $('imageDialog').showModal();}
 function imageFileData(file){return new Promise((resolve,reject)=>{
  const reader=new FileReader();reader.onerror=()=>reject(Error('Image could not be read'));reader.onload=()=>{
    const image=new Image();image.onload=()=>{
@@ -182,11 +203,24 @@ $('newBtn').addEventListener('click',newDocument);$('openBtn').addEventListener(
 $('saveForm').addEventListener('submit',saveAs);$('cancelSave').addEventListener('click',()=>$('saveDialog').close());$('saveFileName').addEventListener('input',updateSavePreview);$('saveFileType').addEventListener('change',updateSavePreview);
 $('openFile').addEventListener('change',async e=>{const file=e.target.files[0];e.target.value='';if(!file)return;try{await readOpenedFile(file)}catch(error){alert('Could not open file: '+error.message)}});
 $('imageBtn').addEventListener('click',()=>$('imageFile').click());
-$('imageFile').addEventListener('change',async e=>{const file=e.target.files[0];e.target.value='';if(!file)return;if(!/^image\/(png|jpeg|gif|webp)$/.test(file.type))return alert('Choose PNG, JPG, GIF, or WebP.');
- try{const data=await imageFileData(file);const fig=document.createElement('figure'),img=document.createElement('img');img.src=data.src;img.alt='';img.width=data.width;img.style.width=data.width+'px';fig.append(img);insertNode(fig);imageProperties(img)}catch(e){alert('Could not insert image: '+e.message)} });
+async function insertImageFile(file){
+ if(!file || !/^image\/(png|jpeg|gif|webp)$/.test(file.type)){alert('Choose a PNG, JPEG, GIF or WebP image.');return;}
+ if(file.size>18*1024*1024){alert('This image is over 18 MB. Resize it before inserting.');return;}
+ try{
+  const data=await imageFileData(file),fig=document.createElement('figure'),img=document.createElement('img');
+  img.src=data.src;img.alt='';img.width=data.width;img.style.width=data.width+'px';
+  fig.dataset.align='center';fig.style.textAlign='center';fig.append(img);
+  insertNode(fig);imageProperties(img);
+ }catch(error){alert('Could not insert image: '+error.message)}
+}
+$('imageFile').addEventListener('change',async e=>{const file=e.target.files[0];e.target.value='';if(file)await insertImageFile(file);});
 $('imagePropsBtn').addEventListener('click',()=>{const sel=window.getSelection();let node=sel?.anchorNode;if(node?.nodeType===3)node=node.parentElement;const img=(node?.closest?.('figure')?.querySelector('img'))||selectedImage;if(img&&editor.contains(img))imageProperties(img);else alert('Click an image in the document first.');});
 $('imageCancel').addEventListener('click',()=>$('imageDialog').close());
-$('imageForm').addEventListener('submit',e=>{e.preventDefault();const img=selectedImage;if(!img||!editor.contains(img))return $('imageDialog').close();img.alt=$('imageAlt').value;const width=Math.max(80,Math.min(900,Number($('imageWidth').value)||440));img.width=width;img.style.width=width+'px';const fig=img.closest('figure');if(fig){let cap=fig.querySelector('figcaption');if($('imageCaption').value){if(!cap){cap=document.createElement('figcaption');fig.append(cap)}cap.textContent=$('imageCaption').value;}else cap?.remove();}change();$('imageDialog').close();});
+$('imageDecorative').addEventListener('change',e=>{$('imageAlt').disabled=e.target.checked;});
+$('imageRemove').addEventListener('click',()=>{const img=selectedImage;if(!img||!editor.contains(img))return $('imageDialog').close();const fig=img.closest('figure');if(fig&&editor.contains(fig))fig.remove();else img.remove();selectedImage=null;change();$('imageDialog').close();});
+$('imageForm').addEventListener('submit',e=>{e.preventDefault();const img=selectedImage;if(!img||!editor.contains(img))return $('imageDialog').close();img.alt=$('imageDecorative').checked?'':$('imageAlt').value.trim();
+ if($('imageDecorative').checked)img.setAttribute('data-decorative','');else img.removeAttribute('data-decorative');
+ const width=Math.max(80,Math.min(900,Number($('imageWidth').value)||440));img.width=width;img.style.width=width+'px';const fig=img.closest('figure');if(fig){fig.dataset.align=$('imageAlignment').value;fig.style.textAlign=$('imageAlignment').value;let cap=fig.querySelector('figcaption');if($('imageCaption').value){if(!cap){cap=document.createElement('figcaption');fig.append(cap)}cap.textContent=$('imageCaption').value;}else cap?.remove();}change();$('imageDialog').close();});
 $('tableBtn').addEventListener('click',()=>$('tableDialog').showModal());$('tableCancel').addEventListener('click',()=>$('tableDialog').close());
 $('tableForm').addEventListener('submit',e=>{e.preventDefault();const rows=Math.min(25,Math.max(1,Number($('tableRows').value))),cols=Math.min(12,Math.max(1,Number($('tableCols').value))),header=$('tableHeader').checked,caption=$('tableCaption').value.trim();
  const table=document.createElement('table');if(caption){const cap=document.createElement('caption');cap.textContent=caption;table.append(cap)}
@@ -219,11 +253,18 @@ function setFocus(value){document.body.classList.toggle('focus-mode',value);$('e
 $('focusBtn').addEventListener('click',()=>setFocus(!document.body.classList.contains('focus-mode')));$('exitFocus').addEventListener('click',()=>setFocus(false));
 editor.addEventListener('paste',e=>{
  const clipboard=e.clipboardData;if(!clipboard)return;
+ const imageItem=Array.from(clipboard.items||[]).find(item=>item.kind==='file'&&/^image\/(png|jpeg|gif|webp)$/.test(item.type));
+ if(imageItem){e.preventDefault();remember();void insertImageFile(imageItem.getAsFile());return;}
  const html=clipboard.getData('text/html');
  if(html){e.preventDefault();try{const safe=M.fromHTML(html,'Paste');insertHtmlMarkup(M.blocksHTML(safe));}catch{document.execCommand('insertText',false,clipboard.getData('text/plain'))}change();return;}
  const txt=clipboard.getData('text/plain');if(txt!=null){e.preventDefault();document.execCommand('insertText',false,txt);change();}
 });
-editor.addEventListener('drop',e=>{if(e.dataTransfer?.files?.length||e.dataTransfer?.types?.includes('text/html'))e.preventDefault()});
+editor.addEventListener('dragover',e=>{if(Array.from(e.dataTransfer?.items||[]).some(item=>item.kind==='file'&&item.type.startsWith('image/')))e.preventDefault();});
+editor.addEventListener('drop',e=>{
+ const file=Array.from(e.dataTransfer?.files||[]).find(f=>/^image\/(png|jpeg|gif|webp)$/.test(f.type));
+ if(file){e.preventDefault();editor.focus();void insertImageFile(file);return;}
+ if(e.dataTransfer?.files?.length||e.dataTransfer?.types?.includes('text/html'))e.preventDefault();
+});
 document.addEventListener('keydown',e=>{
  const ctrl=e.ctrlKey||e.metaKey;
  if(ctrl&&!e.altKey&&e.key.toLowerCase()==='s'){e.preventDefault();if(!$('saveDialog').open)openSave();}
