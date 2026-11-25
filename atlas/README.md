@@ -1,8 +1,22 @@
-# Atlas — standalone accounts
+# Atlas — concept mapping
 
 VUE-inspired concept mapping with standalone email/password accounts, email verification, owner approval, and AI suggestions. No ChatGPT account is needed. Owner: `bluehat2468@gmail.com` (server configuration, never a browser-side permission check).
 
-## Account flow
+## Temporary no-sign-in testing
+
+Sign-in is temporarily disabled in config.js (REQUIRE_SIGN_IN=false). GitHub Pages now opens the complete mapping workspace immediately, without an account, Gmail setup, or backend. Test maps save in this browser under a separate storage key. Use JSON export to keep backups or move maps to another device. Existing account maps remain protected on the backend.
+
+For real AI locally, supply OPENAI_API_KEY in the ignored .env file, then run:
+
+```sh
+node --env-file-if-exists=.env server/test-mode.js
+```
+
+Open http://localhost:4317. This test server binds only to 127.0.0.1, uses an in-memory database for rate limits, and enables only the AI endpoint without sign-in. Account, admin, and account-storage endpoints remain protected. Do not expose this local server through a tunnel. GitHub Pages cannot itself execute AI calls; it displays an explanatory message when no backend is configured.
+
+To restore account protection, set REQUIRE_SIGN_IN=true and use the normal server/start.js with the hosting settings below.
+
+## Account flow (when sign-in is restored)
 
 1. Register with name, email, and a 12–128 character password.
 2. Confirm the emailed verification link (expires after 24 hours; one use).
@@ -13,7 +27,7 @@ The configured owner email becomes the owner only after proving control of that 
 
 ## Hosting status and prerequisites
 
-**GitHub Pages can host the frontend, but cannot run this backend.** The static sign-in page fails closed until a backend is configured. Uploading this folder does not activate email delivery or host the server. The older ChatGPT Sites deployment is separate and still uses its existing owner-private access.
+**GitHub Pages can host the frontend, but cannot run this backend.** The account-based version requires a configured backend; temporary browser-local testing does not. Uploading this folder does not activate email delivery or host the server. The older ChatGPT Sites deployment is separate and still uses its existing owner-private access.
 
 You need:
 

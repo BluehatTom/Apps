@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { createAuth, fail } from './auth.js';
 import { validateMap } from '../model.js';
 import { handleApi } from '../api.js';
-const files=new Set(['index.html','style.css','app.js','model.js','account.js','network.js','config.js']);
+const files=new Set(['index.html','style.css','app.js','model.js','account.js','network.js','config.js','boot.js','local-workspace.js']);
 export function createApp({config,sendMail,ai=handleApi,now}){
  const auth=createAuth({path:config.databasePath,adminEmail:config.adminEmail,frontendUrl:config.frontendUrl,sendMail,now});
  const publicUrl=new URL(config.publicUrl),front=new URL(config.frontendUrl),origins=new Set([publicUrl.origin,front.origin]);
@@ -34,6 +34,15 @@ export function createApp({config,sendMail,ai=handleApi,now}){
     if(path==='/api/auth/resend'&&req.method==='POST')return json(await auth.recover(body.email,'verify'));
     if(path==='/api/auth/forgot'&&req.method==='POST')return json(await auth.recover(body.email,'reset'));
     if(path==='/api/auth/reset'&&req.method==='POST')return json(await auth.reset(body.token,body.password));
+    // No-login AI is explicitly opt-in and usable only from a local loopback test server.
+    // Account storage and admin routes retain their existing authorization checks.
+    if(path==='/api/suggest'&&req.method==='POST'&&config.localTestAI===true){
+     const loopback=['127.0.0.1','::1','::ffff:127.0.0.1'].includes(req.socket.remoteAddress);
+     if(!loopback||!['localhost','127.0.0.1','[::1]'].includes(publicUrl.hostname)||config.trustProxy)fail('No-login AI is available only on the local test server.',403);
+     auth.limit('local-test-ai',30,3600000);
+     const result=await ai(new Request(new URL('/api/suggest',publicUrl),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),config.env||{});
+     res.writeHead(result.status,{'Content-Type':'application/json'});return res.end(await result.text());
+    }
     if(!s)fail('Sign in to continue.',401);
     if(req.method!=='GET'&&req.headers['x-csrf-token']!==s.csrf)fail('Session check failed. Reload and try again.',403);
     if(path==='/api/auth/logout'&&req.method==='POST'){auth.logout(raw);res.setHeader('Set-Cookie',cookie('',0));return json({ok:true});}
