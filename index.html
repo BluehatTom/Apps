@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#111a30">
   <meta name="description" content="A dashboard for GitHub and manually added web apps.">
   <title>Tom's App Hub</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=5">
 </head>
 <body>
   <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -75,9 +75,9 @@
           <div><h1 id="pageTitle">Overview</h1><p class="page-subtitle" id="pageDescription">Apps and connected repositories.</p></div>
           <div class="heading-actions" id="headingActions"></div>
         </div>
-        <div id="viewRoot"></div>
+        <div id="viewRoot"><section class="empty-state startup-state" role="status" aria-live="polite"><h2>Loading dashboard…</h2><p>If this message remains visible, refresh the page.</p></section></div>
       </main>
-      <footer class="page-footer"><span id="footerName">Tom's App Hub</span><span>Configuration saved in this browser</span></footer>
+      <footer class="page-footer"><span id="footerName">Tom's App Hub</span><span>Version 5 · Configuration saved in this browser</span></footer>
     </div>
   </div>
 
@@ -85,7 +85,7 @@
     <form id="repoForm" class="modal-inner">
       <div class="modal-heading"><div><h2 id="repoModalTitle">Add GitHub repository</h2></div><button type="button" class="icon-button" data-close-dialog="repoDialog" aria-label="Close"><svg class="icon"><use href="#i-x"/></svg></button></div>
       <p class="modal-explainer">Paste a GitHub repository URL. App Hub will find HTML entry pages and identify GitHub Pages launch links when available.</p>
-      <div class="field"><label for="repoUrl">Repository URL or owner/repository</label><input id="repoUrl" name="repoUrl" type="text" required autocomplete="off" spellcheck="false" placeholder="https://github.com/username/my-apps" maxlength="250"><span class="field-hint">For private repositories, enter a temporary access token in Settings first.</span></div>
+      <div class="field"><label for="repoUrl">Repository URL or owner/repository</label><input id="repoUrl" name="repoUrl" type="text" required autocomplete="off" spellcheck="false" value="https://github.com/BluehatTom/Apps" placeholder="https://github.com/BluehatTom/Apps" maxlength="250"><span class="field-hint">For private repositories, enter a temporary access token in Settings first.</span></div>
       <div class="field"><label for="repoBaseUrl">Published website base (optional)</label><input id="repoBaseUrl" type="url" autocomplete="off" spellcheck="false" placeholder="https://username.github.io/my-apps/"><span class="field-hint">If you know where the app files are published, enter the folder here. Otherwise the hub will generate suggested links automatically.</span></div>
       <fieldset class="field fieldset"><legend>Files to include</legend><label class="checkline"><input type="radio" name="scanMode" value="apps" checked><span>App pages (recommended)<small>HTML files except common documentation, test, and example folders</small></span></label><label class="checkline"><input type="radio" name="scanMode" value="all"><span>All HTML files<small>May include supporting pages and examples</small></span></label><label class="checkline"><input type="radio" name="scanMode" value="index"><span>Only index.html files<small>Finds pages named index.html in any folder</small></span></label></fieldset>
       <p class="inline-message" id="repoMessage" role="status" aria-live="polite"></p>
@@ -125,6 +125,6 @@
 
   <input type="file" id="importFile" accept="application/json,.json" hidden aria-label="Import App Hub configuration">
   <div class="toast-stack" id="toastStack" role="status" aria-live="polite" aria-atomic="false"></div>
-  <script src="app.js" defer></script>
+  <script src="app.js?v=5" defer></script>
 </body>
 </html>

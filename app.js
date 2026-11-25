@@ -2,9 +2,12 @@
 (() => {
   'use strict';
   const STORAGE_KEY = 'toms-app-hub:v1';
+  const DEFAULT_REPO = {owner:'BluehatTom',repo:'Apps',url:'https://github.com/BluehatTom/Apps'};
+  const DEFAULT_REPO_ID='bluehattom/apps';
   const DEFAULT_CONFIG = () => ({
     version: 1, name: "Tom's App Hub", accent: '#b62a3b', theme: 'light', layout: 'grid',
     sort: 'custom', pagesRoot: '', sources: [], discovered: {}, manualApps: [], overrides: {},
+    defaultRepoDismissed:false,
     sync: { repo: '', file: 'app-hub.json' }, updatedAt: '',
   });
   const PALETTE = ['#e9eafe', '#fae8e9', '#e7f3ed', '#fff0dd', '#e8f0f8', '#f4e8fa', '#e7f4f3', '#f3edf0'];
@@ -63,6 +66,7 @@
     base.sort = ['custom','az','recent'].includes(input.sort) ? input.sort : 'custom';
     base.pagesRoot = safeBaseUrl(input.pagesRoot);
     base.updatedAt = typeof input.updatedAt === 'string' ? clampStr(input.updatedAt, 50) : '';
+    base.defaultRepoDismissed = input.defaultRepoDismissed === true;
     base.sync = {
       repo: typeof input.sync?.repo === 'string' ? clampStr(input.sync.repo, 150) : '',
       file: typeof input.sync?.file === 'string' && /^[a-zA-Z0-9._/-]+\.json$/.test(input.sync.file) && !input.sync.file.includes('..') ? clampStr(input.sync.file, 180) : 'app-hub.json'
@@ -141,6 +145,17 @@
   let catalogLimit = 60;
   const scanning = new Set();
   const scanPromises = new Map();
+  function ensureDefaultSource() {
+    if (state.defaultRepoDismissed || state.sources.some(s=>s.id===DEFAULT_REPO_ID)) return false;
+    state.sources.unshift({
+      id:DEFAULT_REPO_ID, owner:DEFAULT_REPO.owner, repo:DEFAULT_REPO.repo,
+      branch:'', scanMode:'apps', pagesUrl:'', customBaseUrl:'',
+      pagesPath:'/', pagesType:'', homepage:'', repoUrl:DEFAULT_REPO.url,
+      lastScanned:'', truncated:false, error:'', htmlCount:0, excludedCount:0, limited:false
+    });
+    persist(false,false);
+    return true;
+  }
 
   function persist(userChange = true, rerender = true) {
     if (userChange) state.updatedAt = nowIso();
@@ -362,19 +377,27 @@
       scanning.add(id);
       render();
       try {
-        const metadata = await githubJSON(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`);
-        const branch = metadata.default_branch;
-        if (!branch || typeof branch !== 'string') throw new Error('GitHub did not identify a default branch.');
-        let pages = null;
-        try { pages = await githubJSON(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pages`); }
-        catch { /* Pages may be disabled, private, or inaccessible. */ }
+        const existingSource = state.sources.find(s=>s.id===id);
+        const quickCheck = !!options.automatic && !!existingSource?.branch;
+        let metadata, branch, pages=null;
+        if (quickCheck) {
+          branch=existingSource.branch;
+          metadata={default_branch:branch,owner:{login:existingSource.owner},
+            name:existingSource.repo,homepage:existingSource.homepage,html_url:existingSource.repoUrl};
+        } else {
+          metadata = await githubJSON(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`);
+          branch = metadata.default_branch;
+          if (!branch || typeof branch !== 'string') throw new Error('GitHub did not identify a default branch.');
+          try { pages = await githubJSON(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pages`); }
+          catch { /* Pages may be disabled, private, or inaccessible. */ }
+        }
         const tree = await githubJSON(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/trees/${encodeURIComponent(branch)}?recursive=1`);
         if (!Array.isArray(tree.tree)) throw new Error('GitHub did not return a file list for this repository.');
-        const existingSource = state.sources.find(s=>s.id===id);
         const source = {id, owner:metadata.owner?.login || owner, repo:metadata.name || repo,
-          branch, scanMode:mode, pagesUrl:safeUrl(pages?.html_url),
+          branch, scanMode:mode, pagesUrl:quickCheck ? existingSource.pagesUrl : safeUrl(pages?.html_url),
           customBaseUrl: options.customBaseUrl ?? existingSource?.customBaseUrl ?? '',
-          pagesPath:pages?.source?.path === '/docs' ? '/docs' : '/', pagesType:pages?.build_type || '',
+          pagesPath:quickCheck ? existingSource.pagesPath : pages?.source?.path === '/docs' ? '/docs' : '/',
+          pagesType:quickCheck ? existingSource.pagesType : pages?.build_type || '',
           homepage:safeUrl(metadata.homepage), repoUrl:safeUrl(metadata.html_url) || `https://github.com/${owner}/${repo}`,
           lastScanned:nowIso(), truncated:!!tree.truncated, error:''};
         const {list,htmlCount,excludedCount,limited} = htmlPagesFromTree(tree, source, metadata);
@@ -385,11 +408,15 @@
         // previously discovered app cards merely because this response is incomplete.
         const oldList = state.discovered[id] || [];
         const resultList = tree.truncated ? [...new Map([...oldList,...list].map(a=>[a.id,a])).values()] : list;
+        const oldIds=new Set(oldList.map(a=>a.id));
+        const newIds=new Set(resultList.map(a=>a.id));
+        const added=resultList.filter(a=>!oldIds.has(a.id)).length;
+        const removed=oldList.filter(a=>!newIds.has(a.id)).length;
         const index = state.sources.findIndex(s=>s.id===id);
         if (index < 0) state.sources.push(source); else state.sources[index] = source;
         state.discovered[id] = resultList.slice(0,500);
-        persist(true, false);
-        return {count:state.discovered[id].length,htmlCount,excludedCount,limited,truncated:!!tree.truncated};
+        persist(!options.automatic,false);
+        return {count:state.discovered[id].length,htmlCount,excludedCount,limited,truncated:!!tree.truncated,added,removed};
       } catch (e) {
         const old = state.sources.find(s => s.id===id);
         if (old) { old.error = clampStr(e.message,350); persist(false,false); }
@@ -401,22 +428,25 @@
     return settled;
   }
 
-  async function refreshSources() {
+  async function refreshSources(automatic=false) {
     if (refreshBusy) return;
-    if (!state.sources.length) { openDialog('repoDialog'); return; }
+    if (!state.sources.length) { if (!automatic) openDialog('repoDialog'); return; }
     refreshBusy = true; render();
-    const queue = state.sources.map(s=>({owner:s.owner,repo:s.repo,mode:s.scanMode}));
-    let good = 0, bad = 0;
+    const queue = state.sources.map(s=>({owner:s.owner,repo:s.repo,mode:s.scanMode||'apps'}));
+    let good=0, bad=0, added=0, removed=0;
     const worker = async () => {
       while (queue.length) {
         const s = queue.shift();
-        try { await scanRepository(s.owner,s.repo,s.mode); good++; }
+        try { const result=await scanRepository(s.owner,s.repo,s.mode,{automatic}); good++; added+=result.added; removed+=result.removed; }
         catch(e) { bad++; console.warn('Scan failed',s.repo,e); }
       }
     };
     try { await Promise.all(Array.from({length:Math.min(2,queue.length)},worker)); }
     finally { refreshBusy = false; render(); }
-    notify(`${formatCount(good,'repository')} refreshed${bad ? `; ${formatCount(bad,'repository')} failed. Check Sources for details` : ''}.`,bad?'error':'success');
+    if (automatic) {
+      if (added||removed) notify(`GitHub apps updated: ${added} added, ${removed} removed.${bad?` ${bad} source(s) not checked.`:''}`);
+      else if (bad) notify(`${bad} GitHub source(s) not checked. Saved apps are unchanged.`,'error');
+    } else notify(`${good} repositories checked${added||removed?`; ${added} added, ${removed} removed`:''}${bad?`; ${bad} failed.`:''}.`,bad?'error':'success');
   }
 
   function jsonExport() {
@@ -434,6 +464,7 @@
     const clean = normalizeConfig(config);
     if (!confirm(`Replace your current local dashboard with the ${label} configuration? Export a backup first if you want to keep your local changes.`)) return false;
     state = clean; category = 'All'; search = '';
+    ensureDefaultSource();
     persist(false);
     notify(`${label} configuration loaded. GitHub sources can now be refreshed.`);
     return true;
@@ -648,7 +679,7 @@
         <div class="field"><label for="syncFile">Configuration file path</label><input id="syncFile" value="${esc(state.sync.file)}" maxlength="180" spellcheck="false"><span class="field-hint">Recommended: app-hub.json at the repository root.</span></div></div>
         <div class="sync-buttons"><button class="btn btn-primary" data-action="publish-cloud">${icon('upload')} Publish to GitHub</button><button class="btn" data-action="load-cloud">${icon('download')} Load from GitHub</button><button class="btn" data-action="load-published">${icon('cloud')} Load site config</button></div>
         <p class="small-note">Publishing writes a commit to the selected repository (Contents: read/write). When GitHub Pages is published from the repository root, other browsers can read the file automatically. It may take a little time for GitHub Pages to rebuild.</p>
-        <hr class="settings-divider"><h2>Repository scans</h2><p>Scanning is manual to avoid unexpected changes or excessive GitHub API requests. Saved app edits are kept when you rescan.</p>
+        <hr class="settings-divider"><h2>Repository scans</h2><p>Repositories are checked when this page opens. New app pages are added and removed files disappear from the active list. Your edits, favorites and manual links are preserved.</p>
         <button class="btn" data-action="refresh-all" ${refreshBusy?'disabled':''}>${icon('refresh')} ${refreshBusy?'Scanning…':'Refresh all GitHub apps'}</button>
         <p class="small-note">${state.updatedAt?'Local customization last changed '+esc(shortDate(state.updatedAt))+'.':'No saved changes yet.'} A fresh browser has no access to your private repositories unless you provide a token there.</p>
       </section>
@@ -656,6 +687,7 @@
   }
 
   function render() {
+    try {
     setAppearance();
     const apps=visibleApps();
     $('#navAppCount').textContent=String(apps.length);
@@ -678,6 +710,11 @@
     $('#headingActions').innerHTML= view==='settings'?'':
       `<button class="btn" type="button" data-action="${view==='sources'?'discover':'add-repo'}">${icon(view==='sources'?'search':'git')} ${view==='sources'?'Find repositories':'Connect GitHub'}</button><button class="btn btn-primary" type="button" data-action="add-app">${icon('plus')} Add an app</button>`;
     $('#viewRoot').innerHTML=view==='overview'?renderOverview():view==='apps'||view==='favorites'?renderCatalog(view):view==='sources'?renderSources():renderSettings();
+    } catch (error) {
+      console.error('App Hub could not render the main view:', error);
+      const root = $('#viewRoot');
+      if (root) root.innerHTML = `<section class="empty-state render-error" role="alert"><h2>Could not display the dashboard</h2><p>Your saved settings have not been deleted. Export a backup before making changes.</p><p class="render-error-details">${esc(error?.message || 'Unknown rendering error')}</p><div class="button-row"><button class="btn" type="button" data-action="export">Export settings</button><button class="btn btn-primary" type="button" data-action="retry-render">Try again</button></div></section>`;
+    }
   }
   function navigate(destination) {
     if (!['overview','apps','favorites','sources','settings'].includes(destination))return;
@@ -700,7 +737,10 @@
   }
   function closeDialog(id) { const dlg=$('#'+id);if(dlg?.open)dlg.close(); }
   function openRepoDialog() {
-    $('#repoForm').reset(); $('#repoMessage').textContent='';
+    $('#repoForm').reset();
+    $('#repoUrl').value=DEFAULT_REPO.url;
+    $('#repoForm').elements.scanMode.value='apps';
+    $('#repoMessage').textContent='';
     $('#repoSubmit').disabled=false;
     openDialog('repoDialog');
     $('#repoUrl').focus();
@@ -746,6 +786,7 @@
     button.disabled=true; message.textContent=`Reading ${parsed.owner}/${parsed.repo} from GitHub…`;
     try {
       const result=await scanRepository(parsed.owner,parsed.repo,mode,{customBaseUrl:customBaseUrl||undefined});
+      if (parsed.id===DEFAULT_REPO_ID) {state.defaultRepoDismissed=false;persist(false,false);}
       closeDialog('repoDialog');
       navigate('sources');
       notify(`Connected ${parsed.owner}/${parsed.repo}: ${formatCount(result.count,'app')} found.${result.truncated?' GitHub provided a partial file tree.':''}${result.limited?' Showing the first 250 matching files.':''}`);
@@ -809,6 +850,7 @@
     const s=state.sources.find(x=>x.id===id);if(!s)return;
     if (!confirm(`Disconnect ${s.owner}/${s.repo}? Discovered apps from it and their customizations will be removed from this dashboard. The GitHub repository itself will not be changed.`))return;
     state.sources=state.sources.filter(x=>x.id!==id);
+    if(id===DEFAULT_REPO_ID) state.defaultRepoDismissed=true;
     delete state.discovered[id];
     Object.keys(state.overrides).forEach(key=>{if(key.startsWith(`github:${id}:`))delete state.overrides[key];});
     persist();notify(`${s.owner}/${s.repo} disconnected from your hub.`);
@@ -908,6 +950,7 @@
       case 'save-name':saveWorkspaceName();break;
       case 'theme':state.theme=trigger.dataset.theme;persist();break;
       case 'accent':state.accent=trigger.dataset.color;persist();break;
+      case 'retry-render':render();break;
       case 'export':triggerDownload(jsonExport(),'toms-app-hub-backup.json','application/json');notify('JSON backup exported.');break;
       case 'import':$('#importFile').click();break;
       case 'restore-app':changeApp(id,{hidden:false});notify('App restored.');break;
@@ -938,7 +981,7 @@
     const opened=$('#sidebar').classList.toggle('open');
     $('#mobileMenu').setAttribute('aria-expanded',String(opened));
   });
-  $('#topRefresh').addEventListener('click',refreshSources);
+  $('#topRefresh').addEventListener('click',()=>refreshSources());
   $('#repoForm').addEventListener('submit',handleRepoSubmit);
   $('#appForm').addEventListener('submit',handleAppSubmit);
   $('#deleteAppButton').addEventListener('click',removeAppFromDialog);
@@ -954,9 +997,11 @@
   async function initialize() {
     inferHostingRepo();
     render();
-    // Never rescan stored repositories in the background. This prevents sudden
-    // dashboard changes, rate-limit surprises, and collisions with user edits.
     await loadPublishedConfig({auto:true});
+    ensureDefaultSource();
+    render();
+    // Run once per visit; network errors never clear previously discovered apps.
+    void refreshSources(true);
   }
   initialize();
 })();
