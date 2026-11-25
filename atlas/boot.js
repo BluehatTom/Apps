@@ -1,3 +1,7 @@
+const picker=document.getElementById('themeSelect');
+function setTheme(value){const theme=['dark','bright','colorful'].includes(value)?value:'default';document.documentElement.dataset.theme=theme;picker.value=theme;}
+try{setTheme(localStorage.getItem('atlas-theme'));}catch{setTheme('default');}
+picker.addEventListener('change',()=>{setTheme(picker.value);try{localStorage.setItem('atlas-theme',picker.value);}catch{}});
 import { REQUIRE_SIGN_IN } from './config.js';
 if (REQUIRE_SIGN_IN) {
   await import('./account.js');
