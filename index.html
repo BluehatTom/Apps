@@ -6,7 +6,8 @@
   <meta name="theme-color" content="#111a30">
   <meta name="description" content="A dashboard for GitHub and manually added web apps.">
   <title>Tom's App Hub</title>
-  <link rel="stylesheet" href="styles.css?v=5">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=6">
+  <link rel="stylesheet" href="styles.css?v=6">
 </head>
 <body>
   <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -77,7 +78,7 @@
         </div>
         <div id="viewRoot"><section class="empty-state startup-state" role="status" aria-live="polite"><h2>Loading dashboard…</h2><p>If this message remains visible, refresh the page.</p></section></div>
       </main>
-      <footer class="page-footer"><span id="footerName">Tom's App Hub</span><span>Version 5 · Configuration saved in this browser</span></footer>
+      <footer class="page-footer"><span id="footerName">Tom's App Hub</span><span>Version 6 · Configuration saved in this browser</span></footer>
     </div>
   </div>
 
@@ -101,7 +102,7 @@
       <div class="app-form-grid">
         <div class="field field-wide"><label for="appTitle">App name <span class="required">*</span></label><input id="appTitle" required maxlength="100" placeholder="App name"></div>
         <div class="field"><label for="appIcon">Icon (emoji or initials)</label><input id="appIcon" maxlength="8" placeholder="🚀"></div>
-        <div class="field"><label for="appCategory">Category</label><input id="appCategory" maxlength="60" list="categorySuggestions" placeholder="Productivity"><datalist id="categorySuggestions"><option value="Productivity"><option value="Learning labs"><option value="Design & media"><option value="Development"><option value="Data & analytics"><option value="3D printing"><option value="Experiments"></datalist></div>
+        <div class="field"><label for="appCategory">Category</label><input id="appCategory" maxlength="60" list="categorySuggestions" placeholder="Productivity"><datalist id="categorySuggestions"><option value="Productivity"><option value="Design & media"><option value="3D printing"><option value="Writing & documents"><option value="Learning labs"><option value="Games & simulations"><option value="Robotics"><option value="Data & analytics"><option value="Development"><option value="Other"></datalist></div>
         <div class="field field-wide"><label for="appUrl">Launch URL</label><input id="appUrl" type="url" aria-describedby="appUrlHint" maxlength="1000" placeholder="https://example.com/my-app"><span class="field-hint" id="appUrlHint">Use a public web URL or a GitHub repository link.</span><button class="btn btn-small" id="useAutoUrl" type="button" data-action="use-auto-url" hidden>Use generated URL</button></div>
         <div class="field field-wide"><label for="appDescription">Description</label><textarea id="appDescription" rows="2" maxlength="300" placeholder="What does this app do?"></textarea></div>
         <div class="field"><label for="appStatus">Project stage</label><select id="appStatus"><option value="Ready">Ready</option><option value="In progress">In progress</option><option value="Testing">Testing</option><option value="Archived">Archived</option></select></div>
@@ -125,6 +126,6 @@
 
   <input type="file" id="importFile" accept="application/json,.json" hidden aria-label="Import App Hub configuration">
   <div class="toast-stack" id="toastStack" role="status" aria-live="polite" aria-atomic="false"></div>
-  <script src="app.js?v=5" defer></script>
+  <script src="app.js?v=6" defer></script>
 </body>
 </html>

@@ -16,6 +16,11 @@
     { name: 'Violet', color: '#7041a5' }, { name: 'Forest', color: '#15725c' },
   ];
   const STAGES = ['Ready', 'In progress', 'Testing', 'Archived'];
+  const DEFAULT_CATEGORIES = [
+    'Productivity', 'Design & media', '3D printing', 'Writing & documents',
+    'Learning labs', 'Games & simulations', 'Robotics',
+    'Data & analytics', 'Development', 'Other'
+  ];
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const icon = name => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
@@ -201,11 +206,14 @@
   }
   function guessCategory(text) {
     const t = text.toLowerCase();
-    if (/stl|3d|gear|print/.test(t)) return '3D printing';
-    if (/lab|learn|teach|econom|simulator|interview/.test(t)) return 'Learning labs';
-    if (/photo|slide|editor|design/.test(t)) return 'Design & media';
-    if (/data|analytics|spreadsheet|finance/.test(t)) return 'Data & analytics';
-    if (/github|upload|dev|code/.test(t)) return 'Development';
+    if (/robot|mechatronic|manipulator/.test(t)) return 'Robotics';
+    if (/stl|3d|gear|print|cad|blueprint|parts.?maker/.test(t)) return '3D printing';
+    if (/lab|learn|teach|econom|interview|classroom|quiz/.test(t)) return 'Learning labs';
+    if (/game|simulat|fortress.tide|gridline|looplab|puzzle|arcade/.test(t)) return 'Games & simulations';
+    if (/writer|writing|text.studio|documents?|word.processor/.test(t)) return 'Writing & documents';
+    if (/photo|slide|video|vector|illustrat|image|editor|design|draw|media/.test(t)) return 'Design & media';
+    if (/data|analytics|spreadsheet|finance|report/.test(t)) return 'Data & analytics';
+    if (/github|upload|dev|code|extension|script|app.hub/.test(t)) return 'Development';
     return 'Productivity';
   }
 
@@ -584,20 +592,39 @@
       <div class="stat-card"><div><div class="stat-value">${fav}</div><div class="stat-label">Favorites</div></div><span class="stat-icon green">${icon('star')}</span></div>
     </div>`;
   }
+  function categoryNames() {
+    const names=new Set(DEFAULT_CATEGORIES.map(c=>c.toLowerCase()));
+    const extra=visibleApps().map(a=>a.category).filter(Boolean)
+      .filter(c=>!names.has(c.toLowerCase()));
+    return [...DEFAULT_CATEGORIES,...new Set(extra)].slice(0,60);
+  }
+  function categoryCount(apps,name) {
+    return apps.filter(a=>a.category.toLowerCase()===name.toLowerCase()).length;
+  }
+  function categoryOverviewHTML(apps) {
+    const chips=categoryNames().map(c=>{
+      const count=categoryCount(apps,c);
+      return `<button type="button" class="chip category-shortcut" data-action="open-category" data-category="${esc(c)}" aria-label="${esc(c)}: ${count} apps"><span>${esc(c)}</span><span class="chip-count">${count}</span></button>`;
+    }).join('');
+    return `<section class="section" aria-labelledby="category-section"><div class="section-heading"><h2 id="category-section">Categories</h2></div><div class="filter-chips" role="group" aria-label="Browse apps by category">${chips}</div></section>`;
+  }
   function renderOverview() {
     const apps=visibleApps(), favorites=sortApps(apps.filter(a=>a.favorite));
     const recents=sortApps(apps).slice(0,12);
-    return `${statsHTML()}
+    return `${statsHTML()}${categoryOverviewHTML(apps)}
       ${favorites.length?`<section class="section" aria-labelledby="fave-section"><div class="section-heading"><div><h2 id="fave-section">Favorites</h2></div><button type="button" class="btn btn-link" data-action="navigate" data-page="favorites">View all ${icon('arrow')}</button></div>${cardsHTML(favorites.slice(0,4))}</section>`:''}
       <section class="section" aria-labelledby="all-section"><div class="section-heading"><div><h2 id="all-section">${apps.length?'Apps':'Get started'}</h2><p>${apps.length?`${formatCount(apps.length,'app')} available`:'Connect a repository or add a web link.'}</p></div>${apps.length?`<button type="button" class="btn btn-link" data-action="navigate" data-page="apps">All apps ${icon('arrow')}</button>`:''}</div>
       ${apps.length?cardsHTML(recents):emptyHTML('new')}</section>
       ${state.sources.length?`<section class="section"><div class="section-heading"><div><h2>Repositories</h2></div><button class="btn btn-link" data-action="navigate" data-page="sources">Manage ${icon('arrow')}</button></div><div class="source-summary-strip">${state.sources.map(s=>`<span class="source-mini">${icon('git')} ${esc(s.owner+'/'+s.repo)}</span>`).join('')}</div></section>`:''}`;
   }
   function categoriesHTML(mode) {
-    const all=visibleApps().filter(a=>mode==='favorites'?a.favorite:true);
-    const names=['All',...new Set(all.map(a=>a.category).filter(Boolean).sort((a,b)=>a.localeCompare(b)))];
+    const apps=visibleApps().filter(a=>mode==='favorites'?a.favorite:true);
+    const names=['All',...categoryNames().filter(c=>mode!=='favorites'||categoryCount(apps,c)>0)];
     if (!names.includes(category)) category='All';
-    return `<div class="filter-chips" role="group" aria-label="Filter apps by category">${names.map(c=>`<button type="button" class="chip" data-action="category" data-category="${esc(c)}" aria-pressed="${c===category}">${esc(c)}</button>`).join('')}</div>`;
+    return `<div class="filter-chips" role="group" aria-label="Filter apps by category">${names.map(c=>{
+      const count=c==='All'?apps.length:categoryCount(apps,c);
+      return `<button type="button" class="chip" data-action="category" data-category="${esc(c)}" aria-pressed="${c===category}" aria-label="${esc(c)}: ${count} apps">${esc(c)} <span class="chip-count">${count}</span></button>`;
+    }).join('')}</div>`;
   }
   function resultsHTML(mode) {
     const list=filteredApps(mode), total=visibleApps().filter(a=>mode==='favorites'?a.favorite:true).length;
@@ -747,6 +774,7 @@
   }
   function openEditApp(id='') {
     $('#appForm').reset();
+    $('#categorySuggestions').innerHTML=categoryNames().map(c=>`<option value="${esc(c)}"></option>`).join('');
     $('#appMessage').textContent='';
     const app=id?getAppById(id):null;
     $('#appEditId').value=app?.id||'';
@@ -941,6 +969,7 @@
       case 'remove-source':removeSource(id);break;
       case 'show-more':catalogLimit+=60;render();break;
       case 'category':category=trigger.dataset.category;catalogLimit=60;render();break;
+      case 'open-category':navigate('apps');category=trigger.dataset.category;render();break;
       case 'layout':state.layout=trigger.dataset.layout;persist();break;
       case 'toggle-reorder':if(state.sort!=='custom'){state.sort='custom';}reorderMode=!reorderMode;persist();break;
       case 'move-up':moveApp(id,-1);break;
