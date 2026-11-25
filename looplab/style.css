@@ -18,3 +18,12 @@
 :root[data-theme=terminal] .scope{background-image:repeating-linear-gradient(0deg,transparent 0 3px,#67ff6715 3px 4px)}
 :root[data-theme=colorful] .generator{border-top:3px solid #ff83c8}:root[data-theme=colorful] .sequencer{border-top:3px solid #6fe4ff}:root[data-theme=colorful] .performance{border-top:3px solid #ffcb66}
 :root[data-theme=light] .step.on{box-shadow:inset 0 0 0 1px #344155}:root[data-theme=light] .scope{background:#e1e9e5}
+
+.station-tabs{display:flex;gap:8px;padding-top:16px}.station-tabs button{font-size:13px}.station-tabs [aria-pressed=true]{border-color:var(--mint);color:var(--mint);box-shadow:inset 0 -2px var(--mint)}.metal-riff{margin-top:21px}.metal-riff[hidden]{display:none}.riff-controls{display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:0 22px}.riff-controls>label:first-child{width:200px}.riff-help{padding:0 22px;font-size:11px}.riff-scroll{overflow-x:auto;padding:8px 22px 22px}.riff-grid{display:grid;grid-template-columns:repeat(16,minmax(48px,1fr));gap:5px;min-width:850px}.riff-grid>div{display:grid;gap:6px;text-align:center}.riff-grid select{width:100%;padding:7px 2px}.riff-grid .button{padding:6px 2px;font-size:9px}.riff-grid button[aria-pressed=true]{color:var(--mint);border-color:var(--mint)}.riff-grid>div:nth-child(4n+1){border-left:1px solid var(--edge);padding-left:3px}
+:root[data-theme=redcrt]{--bg:#100304;--panel:#180609;--edge:#81323a;--muted:#e09595;--text:#ffb3ad;--mint:#ff5f58;--surface:#21090d;--control:#310d12;--dim:#3b1417;--ink:#180304;color-scheme:dark}
+:root[data-theme=redcrt] :is(body,h1,.brand,.side-bottom p,#bpm,.number,#position){font-family:Consolas,'Courier New',monospace}
+:root[data-theme=redcrt] :is(.panel,.button,.transport,.step,.brand-icon,select){border-radius:0}
+:root[data-theme=redcrt] :is(.track,.channel){--track:#ff5f58!important}
+:root[data-theme=redcrt] .scope{background-image:repeating-linear-gradient(0deg,transparent 0 3px,#ff5f581c 3px 4px)}
+:root[data-theme=redcrt] .piano.pressed{background:var(--mint);color:var(--ink)}
+:root[data-station=metal] .track,.root[data-station=metal] .step-numbers{grid-template-columns:85px 1fr}
