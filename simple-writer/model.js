@@ -31,7 +31,7 @@ const cleanBlock = b => {
    if(['left','right','center','justify'].includes(b.align))block.align=b.align;
  }
  if(type==='list'){block.ordered=!!b.ordered;block.items=(b.items||[]).slice(0,500).map(item=>({runs:cleanRuns(item?.runs)}));}
- if(type==='image'){block.src=safeImage(b.src);block.alt=String(b.alt||'').slice(0,500);block.width=Math.max(80,Math.min(900,Number(b.width)||440));block.caption=String(b.caption||'').slice(0,500);}
+ if(type==='image'){block.src=safeImage(b.src);block.alt=String(b.alt||'').slice(0,500);block.width=Math.max(80,Math.min(900,Number(b.width)||440));block.caption=String(b.caption||'').slice(0,500);block.align=['left','center','right'].includes(b.align)?b.align:'center';block.decorative=!!b.decorative;}
  if(type==='table'){block.caption=String(b.caption||'').slice(0,300);block.header=!!b.header;block.widths=(Array.isArray(b.widths)?b.widths:[]).slice(0,20).map(n=>Math.max(3,Math.min(100,Number(n)||0)));block.rows=(b.rows||[]).slice(0,60).map(row=>(Array.isArray(row)?row:[]).slice(0,20).map(cell=>({runs:cleanRuns(cell?.runs)})));}
  return block;
 };
@@ -100,7 +100,7 @@ function extractBlocks(container){
   if(node.dataset?.pageBreak!==undefined){result.push({type:'pageBreak'});return;}
   if(tag==='IMG' || tag==='FIGURE'){
    const img=tag==='IMG'?node:node.querySelector('img');
-   if(img){const src=safeImage(img.getAttribute('src'));if(src)result.push({type:'image',src,alt:img.getAttribute('alt')||'',width:parseInt(img.style.width||img.getAttribute('width'),10)||440,caption:node.querySelector('figcaption')?.textContent||''});}
+   if(img){const src=safeImage(img.getAttribute('src'));if(src)result.push({type:'image',src,alt:img.getAttribute('alt')||'',width:parseInt(img.style.width||img.getAttribute('width'),10)||440,caption:node.querySelector('figcaption')?.textContent||'',align:(node.dataset?.align||node.style?.textAlign||'center'),decorative:img.hasAttribute('data-decorative')});}
    return;
   }
   if(tag==='TABLE'){
@@ -114,6 +114,17 @@ function extractBlocks(container){
   if(/^H[1-3]$/.test(tag)){result.push({type:'heading',level:Number(tag[1]),runs:readInline(node),align:parseAlign(node)});return;}
   if(tag==='BLOCKQUOTE'){result.push({type:'quote',runs:readInline(node),align:parseAlign(node)});return;}
   if(['P','DIV','LI'].includes(tag)){
+    if(node.querySelector('img') && node.querySelectorAll('img').length){
+      for(const child of Array.from(node.childNodes)) {
+        if(child.nodeType===1 && (child.tagName==='IMG'||child.tagName==='FIGURE'))add(child);
+        else if(child.nodeType===1 && child.querySelector('img')) {
+          if(child.textContent.trim())result.push({type:'paragraph',runs:readInline(child)});
+          for(const img of child.querySelectorAll('img'))add(img);
+        } else if(child.nodeType===3 && child.textContent.trim())add(child);
+        else if(child.nodeType===1 && child.textContent.trim())result.push({type:'paragraph',runs:readInline(child)});
+      }
+      return;
+    }
     if(node.children.length===1 && ['P','DIV','UL','OL','TABLE','FIGURE'].includes(node.firstElementChild?.tagName)){
       for(const ch of node.childNodes)add(ch);return;
     }
@@ -161,7 +172,8 @@ function createBlocks(doc){const frag=document.createDocumentFragment();
   }else if(b.type==='image'){
    if(!safeImage(b.src))continue;
    const fig=document.createElement('figure'), img=document.createElement('img');
-   img.src=b.src;img.alt=b.alt||'';img.style.width=Math.min(900,Number(b.width)||440)+'px';img.width=Math.min(900,Number(b.width)||440);
+   fig.dataset.align=b.align||'center';fig.style.textAlign=b.align||'center';
+   img.src=b.src;img.alt=b.alt||'';if(b.decorative)img.setAttribute('data-decorative','');img.style.width=Math.min(900,Number(b.width)||440)+'px';img.width=Math.min(900,Number(b.width)||440);
    fig.appendChild(img);if(b.caption){const cap=document.createElement('figcaption');cap.textContent=b.caption;fig.appendChild(cap)}frag.appendChild(fig);
   }else if(b.type==='table'){
    const table=document.createElement('table');
@@ -191,7 +203,7 @@ function blocksHTML(model){
   if(['paragraph','heading','quote'].includes(b.type)){const t=b.type==='heading'?'h'+b.level:b.type==='quote'?'blockquote':'p';return `<${t} style="text-align:${b.align||'left'}">${inlineHTML(b.runs)||'<br>'}</${t}>`;}
   if(b.type==='list'){const tag=b.ordered?'ol':'ul';return `<${tag}>${b.items.map(it=>'<li>'+inlineHTML(it.runs)+'</li>').join('')}</${tag}>`;}
   if(b.type==='table'){return '<table>'+(b.widths?.length?'<colgroup>'+b.widths.map(n=>'<col style="width:'+n+'%">').join('')+'</colgroup>':'')+(b.caption?'<caption>'+escapeHTML(b.caption)+'</caption>':'')+b.rows.map((row,i)=>'<tr>'+row.map(c=>{const t=b.header&&i===0?'th':'td';return `<${t}${t==='th'?' scope="col"':''}>${inlineHTML(c.runs)||'&nbsp;'}</${t}>`}).join('')+'</tr>').join('')+'</table>';}
-  if(b.type==='image')return safeImage(b.src)?`<figure><img alt="${escapeHTML(b.alt)}" src="${escapeHTML(b.src)}" width="${b.width||440}" style="max-width:100%;width:${b.width||440}px;height:auto">${b.caption?'<figcaption>'+escapeHTML(b.caption)+'</figcaption>':''}</figure>`:'';
+  if(b.type==='image')return safeImage(b.src)?`<figure data-align="${b.align||'center'}" style="text-align:${b.align||'center'}"><img alt="${escapeHTML(b.alt)}"${b.decorative?' data-decorative=""':''} src="${escapeHTML(b.src)}" width="${b.width||440}" style="max-width:100%;width:${b.width||440}px;height:auto">${b.caption?'<figcaption>'+escapeHTML(b.caption)+'</figcaption>':''}</figure>`:'';
   if(b.type==='pageBreak')return '<div class="page-break" data-page-break=""></div>';
   return '';
  }).join('\n');
@@ -200,7 +212,7 @@ function toHTML(model){
  const d=normalize(model),title=escapeHTML(d.title);
  const modelJSON=JSON.stringify(d).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029');
  const paper=d.page.paper==='a4'?'A4':'letter',size=paper+(d.page.orientation==='landscape'?' landscape':'');
- return `<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title>\n<style>body{font:16px/1.55 Arial,sans-serif;color:#202020;max-width:7.5in;margin:35px auto;padding:0 18px}p{margin:0 0 ${d.page.spacing}em}h1,h2,h3{line-height:1.3}figure{text-align:center;margin:16px 0}figcaption{font-size:.85em;color:#4e5964}img{max-width:100%;height:auto}table{border-collapse:collapse;width:100%}th,td{border:1px solid #899bab;padding:7px;text-align:left}th{background:#edf3f9}blockquote{border-left:4px solid #c2d0da;padding-left:12px}.page-break{break-before:page;page-break-before:always}@page{size:${size};margin:${d.page.margin}in}@media print{body{max-width:none;margin:0;padding:0}}</style></head><body><main id="simple-writer-document">\n${blocksHTML(d)}\n</main><script id="simple-writer-model" type="application/json">${modelJSON}</script></body></html>`;
+ return `<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title>\n<style>body{font:16px/1.55 Arial,sans-serif;color:#202020;max-width:7.5in;margin:35px auto;padding:0 18px}p{margin:0 0 ${d.page.spacing}em}h1,h2,h3{line-height:1.3}figure{text-align:center;margin:16px 0}figure[data-align="left"] img{margin-left:0;margin-right:auto}figure[data-align="right"] img{margin-left:auto;margin-right:0}figure[data-align="center"] img{margin:auto}figcaption{font-size:.85em;color:#4e5964}img{max-width:100%;height:auto;display:block;margin:auto}table{border-collapse:collapse;width:100%}th,td{border:1px solid #899bab;padding:7px;text-align:left}th{background:#edf3f9}blockquote{border-left:4px solid #c2d0da;padding-left:12px}.page-break{break-before:page;page-break-before:always}@page{size:${size};margin:${d.page.margin}in}@media print{body{max-width:none;margin:0;padding:0}}</style></head><body><main id="simple-writer-document">\n${blocksHTML(d)}\n</main><script id="simple-writer-model" type="application/json">${modelJSON}</script></body></html>`;
 }
 function toText(model){return normalize(model).blocks.map(b=>{
  const txt=runs=>(runs||[]).map(x=>x.text).join('');
