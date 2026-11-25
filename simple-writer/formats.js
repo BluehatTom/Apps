@@ -115,8 +115,8 @@ async function exportDOCX(model){
    const width=Math.round(Math.min(b.width||440,doc.page.paper==='a4'?510:520));
    let height=Math.max(1,Math.round(width*.65));
    try{const probe=new Image();probe.src=b.src;await probe.decode();height=Math.max(1,Math.round(width*(probe.naturalHeight/probe.naturalWidth)));}catch{}
-   children.push(new lib.Paragraph({alignment:lib.AlignmentType.CENTER,children:[new lib.ImageRun({type:image.type,data:image.bytes,transformation:{width,height},altText:{name:b.alt||'Image',description:b.alt||'',title:b.alt||'Image'}})]}));
-   if(b.caption)children.push(new lib.Paragraph({alignment:lib.AlignmentType.CENTER,children:[new lib.TextRun({text:b.caption,italics:true,size:20})]}));
+   children.push(new lib.Paragraph({alignment:alignment[b.align||'center'],children:[new lib.ImageRun({type:image.type,data:image.bytes,transformation:{width,height},altText:{name:b.alt||'Image',description:b.alt||'',title:b.alt||'Image'}})]}));
+   if(b.caption)children.push(new lib.Paragraph({alignment:alignment[b.align||'center'],children:[new lib.TextRun({text:b.caption,italics:true,size:20})]}));
   }else if(b.type==='pageBreak')children.push(new lib.Paragraph({children:[new lib.PageBreak()]}));
  }
  if(!children.length)children.push(new lib.Paragraph(''));
