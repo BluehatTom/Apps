@@ -445,7 +445,7 @@
         if (event.dataTransfer && (event.dataTransfer.files.length || event.dataTransfer.types.includes('text/html'))) event.preventDefault();
       });
 
-      const SAFE_TAGS = new Set(['P','BR','DIV','SPAN','B','STRONG','I','EM','U','S','STRIKE','FONT','H1','H2','H3','UL','OL','LI','BLOCKQUOTE','A','SUB','SUP']);
+      const SAFE_TAGS = new Set(['P','BR','DIV','SPAN','B','STRONG','I','EM','U','S','STRIKE','FONT','H1','H2','H3','UL','OL','LI','BLOCKQUOTE','A','SUB','SUP','IMG','TABLE','THEAD','TBODY','TFOOT','TR','TH','TD','CAPTION']);
       const SAFE_STYLES = new Set(['color','background-color','font-family','font-size','font-weight','font-style','text-decoration','text-align','margin-left']);
       function cleanNode(node, output) {
         if (node.nodeType === Node.TEXT_NODE) { output.appendChild(document.createTextNode(node.textContent || '')); return; }
@@ -458,6 +458,14 @@
             const url = safeUrl(node.getAttribute('href'));
             if (url) safe.setAttribute('href', url);
           }
+          if (node.tagName === 'IMG') {
+            const src = node.getAttribute('src') || '';
+            if (/^https?:\/\//i.test(src) && src.length < 2500) safe.setAttribute('src', src);
+            if (node.hasAttribute('alt')) safe.setAttribute('alt', (node.getAttribute('alt') || '').slice(0, 500));
+            if (node.hasAttribute('width') && /^\d{1,4}$/.test(node.getAttribute('width'))) safe.setAttribute('width', node.getAttribute('width'));
+            if (node.hasAttribute('height') && /^\d{1,4}$/.test(node.getAttribute('height'))) safe.setAttribute('height', node.getAttribute('height'));
+          }
+          if (node.tagName === 'TH' && ['row','col','rowgroup','colgroup'].includes(node.getAttribute('scope'))) safe.setAttribute('scope', node.getAttribute('scope'));
           if (node.tagName === 'FONT') {
             for (const attr of ['face', 'size', 'color']) {
               const value = node.getAttribute(attr);
@@ -577,6 +585,152 @@
           saveButton.disabled = false;
         }
       });
+      function parseColor(raw) {
+        const value = String(raw || '').trim();
+        if (/^#[0-9a-f]{3}$/i.test(value)) return [1,2,3].map(i => parseInt(value[i] + value[i], 16));
+        if (/^#[0-9a-f]{6}$/i.test(value)) return [0,2,4].map(i => parseInt(value.slice(i+1,i+3),16));
+        const parts = value.match(/^rgba?\(\s*(\d+(?:\.\d+)?)\s*[, ]\s*(\d+(?:\.\d+)?)\s*[, ]\s*(\d+(?:\.\d+)?)/i);
+        if (parts) return parts.slice(1,4).map(Number);
+        return null;
+      }
+      function contrastRatio(foreground, background) {
+        const luminance = color => {
+          const channels = color.map(x => {
+            x = Math.min(255, Math.max(0, x)) / 255;
+            return x <= .04045 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4;
+          });
+          return .2126 * channels[0] + .7152 * channels[1] + .0722 * channels[2];
+        };
+        const a = luminance(foreground), b = luminance(background);
+        return (Math.max(a,b) + .05) / (Math.min(a,b) + .05);
+      }
+      function effectiveBackground(element) {
+        let node = element;
+        while (node && node.nodeType === 1) {
+          const value = getComputedStyle(node).backgroundColor;
+          if (value && value !== 'transparent' && !/^rgba?\(\s*0\s*[, ]\s*0\s*[, ]\s*0\s*[, ]\s*0\s*\)/.test(value)) return parseColor(value);
+          node = node.parentElement;
+        }
+        return [255,255,255];
+      }
+      function focusIssue(element) {
+        if (!element || !editor.contains(element)) return;
+        document.querySelectorAll('.a11y-target').forEach(node => node.classList.remove('a11y-target'));
+        element.classList.add('a11y-target');
+        element.scrollIntoView({behavior:'smooth', block:'center'});
+        editor.focus({preventScroll:true});
+        try {
+          const range = document.createRange();
+          range.selectNodeContents(element);
+          range.collapse(true);
+          const selection = window.getSelection();
+          selection.removeAllRanges();
+          selection.addRange(range);
+        } catch (_) {}
+        setTimeout(() => element.classList.remove('a11y-target'), 4500);
+      }
+      function scanAccessibility() {
+        const results = [];
+        function issue(level, title, detail, element) {
+          results.push({level,title,detail,element});
+        }
+        const headings = Array.from(editor.querySelectorAll('h1,h2,h3,h4,h5,h6'));
+        let lastLevel = 0;
+        for (const heading of headings) {
+          const level = Number(heading.tagName[1]);
+          if (!heading.textContent.trim()) issue('error','Empty heading','Add descriptive text to this heading or remove its heading style.',heading);
+          if (!lastLevel && level !== 1) issue('review','First heading is not Heading 1','Consider beginning the document heading hierarchy with Heading 1.',heading);
+          if (lastLevel && level > lastLevel + 1) issue('error','Skipped heading level', 'Move from Heading ' + lastLevel + ' to Heading ' + (lastLevel+1) + ' before using Heading ' + level + '.', heading);
+          lastLevel = level;
+        }
+        if ((editor.textContent || '').trim().length > 200 && headings.length === 0) {
+          issue('review','No structured headings','For longer documents, use heading styles to organize sections.',editor);
+        }
+        editor.querySelectorAll('a').forEach(link => {
+          const label = link.textContent.replace(/\s+/g,' ').trim();
+          if (!label) issue('error','Empty link','Add meaningful link text.',link);
+          else if (/^(click here|here|read more|more|link|learn more)$/i.test(label)) issue('review','Unclear hyperlink text','Replace “‘' + label + '” with text describing its destination.',link);
+          else if (/^https?:\/\/\S{35,}$/i.test(label)) issue('review','Long URL as link text','Consider a short descriptive label instead of the full web address.',link);
+          if (!link.getAttribute('href')) issue('error','Link has no destination','Edit or remove this hyperlink.',link);
+        });
+        editor.querySelectorAll('img').forEach(img => {
+          if (!img.hasAttribute('alt')) issue('error','Image missing alternative text','Supply a short description of important visual information. Decorative images should use empty alt text.',img);
+          else if (/^(image|photo|picture|graphic|screenshot)(\s+of)?$/i.test((img.getAttribute('alt') || '').trim())) issue('review','Unhelpful image description','Describe the image content or purpose, rather than just its type.',img);
+        });
+        editor.querySelectorAll('table').forEach(table => {
+          if (!table.querySelector('th')) issue('error','Table missing header cells','Mark the top row or the appropriate column as table headers.',table);
+          else if (table.querySelectorAll('th').length && !table.querySelector('th[scope]')) issue('review','Table header relationships','Review whether table header associations are clear. For complex tables, use scope attributes.',table);
+          if (!table.querySelector('caption')) issue('review','Table has no caption','Consider adding a brief caption describing the data.',table);
+        });
+        const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+        const seen = new Set();
+        let textNode, count = 0;
+        while ((textNode = walker.nextNode()) && count < 600) {
+          if (!(textNode.nodeValue || '').trim()) continue;
+          const parent = textNode.parentElement;
+          if (!parent || !editor.contains(parent)) continue;
+          const style = getComputedStyle(parent);
+          const fg = parseColor(style.color);
+          const bg = effectiveBackground(parent);
+          if (!fg || !bg) continue;
+          const key = style.color + '|' + bg.join(',') + '|' + style.fontSize + '|' + style.fontWeight;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          count++;
+          const size = parseFloat(style.fontSize) || 16;
+          const bold = parseInt(style.fontWeight,10) >= 700 || style.fontWeight === 'bold';
+          const threshold = size >= 24 || (size >= 18.66 && bold) ? 3 : 4.5;
+          const ratio = contrastRatio(fg,bg);
+          if (ratio < threshold) issue('error','Low text contrast','Estimated contrast ' + ratio.toFixed(2) + ':1; aim for ' + threshold + ':1 or higher. Transparent colors, gradients, and image backgrounds require manual review.',parent);
+        }
+        const output = document.getElementById('a11yResults');
+        const summary = document.getElementById('a11ySummary');
+        output.replaceChildren();
+        const errors = results.filter(x => x.level === 'error').length;
+        const reviews = results.filter(x => x.level === 'review').length;
+        summary.textContent = errors + ' potential issue' + (errors === 1 ? '' : 's') + ' · ' + reviews + ' to review';
+        if (!results.length) {
+          const p = document.createElement('p');
+          p.className = 'a11y-empty';
+          p.textContent = 'No issues found by these automated checks. Review reading order, meaning, and visual presentation manually.';
+          output.appendChild(p);
+        }
+        results.forEach((entry, index) => {
+          const section = document.createElement('section');
+          section.className = 'a11y-item';
+          const severity = document.createElement('div');
+          severity.className = 'a11y-severity' + (entry.level === 'review' ? ' review' : '');
+          severity.textContent = entry.level === 'error' ? 'Potential issue' : 'Needs review';
+          const heading = document.createElement('h3');
+          heading.textContent = (index+1) + '. ' + entry.title;
+          const explanation = document.createElement('p');
+          explanation.textContent = entry.detail;
+          const jump = document.createElement('button');
+          jump.type = 'button';
+          jump.className = 'action-button';
+          jump.textContent = 'Go to text';
+          jump.setAttribute('aria-label','Go to: ' + entry.title);
+          jump.addEventListener('click', () => focusIssue(entry.element));
+          section.append(severity,heading,explanation,jump);
+          output.appendChild(section);
+        });
+      }
+      function showAccessibility() {
+        a11yPanel.hidden = false;
+        workspaceLayout.classList.add('panel-open');
+        a11yTrigger.setAttribute('aria-expanded','true');
+        scanAccessibility();
+        document.getElementById('a11yTitle').focus();
+      }
+      function closeAccessibility() {
+        a11yPanel.hidden = true;
+        workspaceLayout.classList.remove('panel-open');
+        a11yTrigger.setAttribute('aria-expanded','false');
+        a11yTrigger.focus();
+      }
+      a11yTrigger.addEventListener('click', () => a11yPanel.hidden ? showAccessibility() : closeAccessibility());
+      document.getElementById('closeAccessibility').addEventListener('click', closeAccessibility);
+      document.getElementById('rerunAccessibility').addEventListener('click', scanAccessibility);
       document.getElementById('printDocument').addEventListener('click', () => {
         localSave();
         window.print();
