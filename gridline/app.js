@@ -1,7 +1,8 @@
 import { ROWS, COLS, address, coordinates, calculate } from './formulas.mjs';
-import { STORAGE_KEY, initialWorkbook } from './workbook.mjs';
+import { BORDER_SIDES, FILL_COLORS, STORAGE_KEY, initialWorkbook, removePristineExample } from './workbook.mjs';
 import { bounds, decodeBlock, encodeBlock, parseRange, rangeAddress, rangeRows } from './ranges.mjs';
 import { setupStatistics } from './stats-panel.mjs';
+import { applyCellAppearance, downloadFile, renderPrintSheet, safeFilename, setupWorkbookTools } from './workbook-tools.mjs';
 
 const icons = {
   grid: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>',
@@ -15,6 +16,14 @@ const icons = {
   help: '<circle cx="12" cy="12" r="9"/><path d="M9.3 9a2.7 2.7 0 1 1 4.2 2.3c-1 .7-1.5 1.2-1.5 2.3m0 2.7h.01"/>',
   close: '<path d="m6 6 12 12M18 6 6 18"/>',
   statistics: '<path d="M4 4v16h16M8 15v-3m5 3V8m5 7V5"/>',
+  file: '<path d="M6 3h8l4 4v14H6zM14 3v5h4M9 12h6m-6 4h6"/>',
+  folder: '<path d="M3 6h7l2 2h9v11H3z"/>',
+  csv: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M4 15h16M11 10v10"/>',
+  print: '<path d="M7 8V3h10v5M7 17H4V8h16v9h-3m-10-3h10v7H7zM7 11h.01"/>',
+  theme: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/>',
+  fill: '<path d="m8 4 10 10-5 5a2 2 0 0 1-3 0l-6-6a2 2 0 0 1 0-3l6-6m-6 9h12m4 2c1 1.4 2 2.3 2 3.5a2 2 0 0 1-4 0c0-1.2 1-2.1 2-3.5Z"/>',
+  borders: '<rect x="4" y="4" width="16" height="16" rx="1"/><path d="M12 4v16M4 12h16"/>',
+  dice: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 8h.01m8 0h.01m-4 4h.01m-4 4h.01m8 0h.01" stroke-width="3"/>',
 };
 for (const element of document.querySelectorAll('[data-icon]')) {
   element.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[element.dataset.icon]}</svg>`;
@@ -44,7 +53,11 @@ const statistics = setupStatistics(currentSheet, () => rangeAddress(selected, ra
 function loadWorkbook() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (saved?.sheets?.[saved.active]?.cells) return saved;
+    if (saved?.sheets?.[saved.active]?.cells) {
+      const workbook = removePristineExample(saved);
+      if (workbook !== saved) showSaveState(true, 'Saves locally');
+      return workbook;
+    }
   } catch {
     showSaveState(false, 'Local storage unavailable');
     return initialWorkbook();
@@ -175,6 +188,7 @@ function refreshGrid() {
       node.classList.toggle('numeric', typeof value === 'number');
       node.classList.toggle('negative', typeof value === 'number' && value < 0);
       node.classList.toggle('error', error);
+      applyCellAppearance(node, cell);
       node.firstElementChild.style.fontWeight = cell?.bold ? '700' : '';
       node.firstElementChild.style.fontStyle = cell?.italic ? 'italic' : '';
     }
@@ -219,7 +233,12 @@ function syncSelection() {
   addressInput.value = rangeAddress(selected, rangeEnd);
   formula.value = cells[key]?.value ?? '';
   const firstFormat = entries[0]?.format ?? '';
+  const firstFill = entries[0]?.fill;
   formatInput.value = entries.every(cell => (cell?.format ?? '') === firstFormat) ? firstFormat : 'mixed';
+  const sample = byId('fill-sample');
+  sample.style.backgroundColor = entries.every(cell => cell?.fill === firstFill) && Object.hasOwn(FILL_COLORS, firstFill)
+    ? FILL_COLORS[firstFill]
+    : '';
   for (const style of ['bold', 'italic']) byId(style).setAttribute('aria-pressed', entries.every(cell => cell?.[style]));
   for (const format of ['currency', 'percent']) byId(format).setAttribute('aria-pressed', entries.every(cell => cell?.format === format));
   byId('undo').disabled = undo.length === 0;
@@ -255,7 +274,7 @@ function move(row, col, extend = false) {
 
 function put(cells, key, properties) {
   const cell = { ...cells[key], ...properties };
-  if (cell.value || cell.style || cell.bold || cell.italic || cell.format) cells[key] = cell;
+  if (cell.value || cell.style || cell.bold || cell.italic || cell.format || cell.fill || cell.border) cells[key] = cell;
   else delete cells[key];
 }
 
@@ -280,6 +299,31 @@ function updateRange(property, value) {
 
 function toggleStyle(style) {
   updateRange(style, byId(style).getAttribute('aria-pressed') !== 'true');
+}
+
+function setBorders(option) {
+  const { cells } = currentSheet();
+  const [top, left, bottom, right] = bounds(selected, rangeEnd);
+  const updates = [];
+  for (let row = top; row <= bottom; row++) {
+    for (let col = left; col <= right; col++) {
+      const key = address(row, col);
+      const existing = cells[key]?.border ?? 0;
+      let mask = BORDER_SIDES[option] ?? 0;
+      if (option === 'all') mask = 15;
+      if (option === 'outside') {
+        if (row === top) mask |= BORDER_SIDES.top;
+        if (col === right) mask |= BORDER_SIDES.right;
+        if (row === bottom) mask |= BORDER_SIDES.bottom;
+        if (col === left) mask |= BORDER_SIDES.left;
+      }
+      const border = option === 'none' ? 0 : existing | mask;
+      if (border !== existing) updates.push([key, border]);
+    }
+  }
+  if (updates.length) change(() => {
+    for (const [key, border] of updates) put(cells, key, { border });
+  });
 }
 
 function startEditing(replace) {
@@ -544,6 +588,18 @@ for (const format of ['currency', 'percent']) {
   });
 }
 formatInput.addEventListener('change', () => { setFormat(formatInput.value); grid.focus({ preventScroll: true }); });
+byId('cell-fill').addEventListener('change', event => {
+  const control = event.currentTarget;
+  updateRange('fill', control.value === 'none' ? '' : control.value);
+  control.value = '';
+  grid.focus({ preventScroll: true });
+});
+byId('cell-border').addEventListener('change', event => {
+  const control = event.currentTarget;
+  setBorders(control.value);
+  control.value = '';
+  grid.focus({ preventScroll: true });
+});
 byId('add-sheet').addEventListener('click', () => {
   const usedNames = new Set(book.sheets.map(sheet => sheet.name));
   let number = book.sheets.length + 1;
@@ -582,12 +638,32 @@ byId('export').addEventListener('click', () => {
     }
     lines.push(values.join(','));
   }
-  const url = URL.createObjectURL(new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }));
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `${name.replace(/[^\p{L}\p{N} ._-]/gu, '_') || 'Sheet'}.csv`;
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  downloadFile(lines.join('\r\n'), 'text/csv;charset=utf-8', safeFilename(name, 'Sheet') + '.csv');
+});
+
+setupWorkbookTools({
+  getBook: () => book,
+  getSelection: () => [selected, rangeEnd],
+  writeGenerated(selection, entries) {
+    const { cells } = currentSheet();
+    change(() => {
+      [selected, rangeEnd] = selection;
+      for (const [key, value] of entries) put(cells, key, { value });
+    });
+  },
+  openBook(workbook) {
+    change(() => {
+      book = workbook;
+      selected = [0, 0];
+      rangeEnd = selected;
+      nameInput.value = book.name;
+    }, true);
+    scroller.scrollTo(0, 0);
+  },
+  preparePrint() {
+    if ([editor, formula, nameInput].includes(document.activeElement)) document.activeElement.blur();
+    renderPrintSheet(byId('print-sheet'), book, currentSheet(), cellNodes);
+  },
 });
 
 nameInput.value = book.name;

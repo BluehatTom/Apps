@@ -6,6 +6,7 @@
   <meta name="description" content="A simple spreadsheet with editable cells, formulas, and browser-local saving.">
   <title>Gridline — Spreadsheet</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="workbook-tools.css">
   <script type="module" src="app.js"></script>
 </head>
 <body>
@@ -18,8 +19,27 @@
     </label>
     <span id="save-state" class="save-state" role="status"><span data-icon="check"></span><span>Saved locally</span></span>
     <div class="header-actions">
+      <details id="file-menu" class="file-menu">
+        <summary class="header-button" aria-label="File"><span data-icon="file"></span><span class="action-label">File</span><span class="menu-chevron" data-icon="chevron"></span></summary>
+        <div class="file-actions">
+          <button id="open-workbook" type="button"><span data-icon="folder"></span>Open workbook…</button>
+          <button id="save-workbook-as" type="button"><span data-icon="download"></span>Save as…</button>
+          <button id="export" type="button"><span data-icon="csv"></span>Export CSV</button>
+          <button id="print" type="button"><span data-icon="print"></span>Print…</button>
+        </div>
+      </details>
+      <div class="theme-control header-button">
+        <span data-icon="theme"></span>
+        <select id="theme" aria-label="Theme" title="Theme">
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+          <option value="green">80s Green</option>
+          <option value="orange">80s Orange</option>
+          <option value="colorful">Colorful</option>
+        </select>
+        <span class="menu-chevron" data-icon="chevron"></span>
+      </div>
       <button id="help" class="header-button help-button" aria-label="Help" aria-haspopup="dialog" aria-controls="help-dialog"><span data-icon="help"></span><span>Help</span></button>
-      <button id="export" class="header-button export-button" aria-label="Export CSV"><span data-icon="download"></span><span>Export CSV</span></button>
     </div>
   </header>
   <main class="workspace">
@@ -47,7 +67,41 @@
             <span data-icon="chevron"></span>
           </div>
         </div>
-        <button id="toggle-statistics" class="statistics-toggle" type="button" aria-expanded="false" aria-controls="statistics-panel"><span data-icon="statistics"></span>Statistics</button>
+        <div class="tool-group cell-decoration">
+          <div class="toolbar-select">
+            <span data-icon="fill"></span><span id="fill-sample" aria-hidden="true"></span>
+            <select id="cell-fill" aria-label="Cell background color" title="Cell background color">
+              <option value="" disabled selected>Fill</option>
+              <option value="none">No fill</option>
+              <option value="yellow">Yellow</option>
+              <option value="green">Green</option>
+              <option value="blue">Blue</option>
+              <option value="purple">Purple</option>
+              <option value="pink">Pink</option>
+              <option value="orange">Orange</option>
+              <option value="gray">Gray</option>
+            </select>
+            <span class="menu-chevron" data-icon="chevron"></span>
+          </div>
+          <div class="toolbar-select">
+            <span data-icon="borders"></span>
+            <select id="cell-border" aria-label="Cell borders" title="Cell borders">
+              <option value="" disabled selected>Borders</option>
+              <option value="all">All borders</option>
+              <option value="outside">Outside borders</option>
+              <option value="top">Top border</option>
+              <option value="right">Right border</option>
+              <option value="bottom">Bottom border</option>
+              <option value="left">Left border</option>
+              <option value="none">Clear borders</option>
+            </select>
+            <span class="menu-chevron" data-icon="chevron"></span>
+          </div>
+        </div>
+        <div class="worksheet-actions">
+          <button id="open-generator" class="statistics-toggle" type="button" aria-haspopup="dialog" aria-controls="generator-dialog"><span data-icon="dice"></span>Test data</button>
+          <button id="toggle-statistics" class="statistics-toggle" type="button" aria-expanded="false" aria-controls="statistics-panel"><span data-icon="statistics"></span>Statistics</button>
+        </div>
       </div>
       <form class="formula-bar" id="formula-form">
         <label class="address-field"><input id="address" aria-label="Cell or range address" title="Enter a cell or range, such as A1:B5" spellcheck="false" autocomplete="off" maxlength="16"></label>
@@ -138,12 +192,52 @@
           <li><strong>Edit and navigate.</strong> Select a cell and type to replace it. Double-click or press <kbd>F2</kbd> to edit its current value. Use the arrow keys to move or enter a cell address to jump there.</li>
           <li><strong>Select a range.</strong> Drag across cells, hold <kbd>Shift</kbd> while clicking or using the arrow keys, or enter an address like <code>A1:B5</code>. Copy, clear, or format the whole selection at once.</li>
           <li><strong>Analyze data.</strong> Open <strong>Statistics</strong>, choose an analysis, then type a range or use your selection.</li>
-          <li><strong>Format and undo.</strong> Use the toolbar for bold, italic, number, currency, and percent formats. Use Undo or Redo to step through changes.</li>
+          <li><strong>Format and undo.</strong> Apply text styles, number formats, cell fills, or borders from the toolbar. Use Undo or Redo to step through changes.</li>
           <li><strong>Manage sheets.</strong> Click <strong>+</strong> to add a sheet. Double-click a tab to rename it.</li>
-          <li><strong>Save and export.</strong> Changes save in this browser. <strong>Export CSV</strong> downloads values from the active sheet.</li>
+          <li><strong>Generate test data.</strong> Open <strong>Test data</strong>, set a destination range, and choose a distribution.</li>
+          <li><strong>Save, export, and print.</strong> Changes save in this browser. Use <strong>File</strong> to save or open a workbook copy, export values to CSV, or print the active sheet.</li>
         </ul>
       </section>
     </div>
   </dialog>
+  <dialog id="generator-dialog" class="help-dialog tool-dialog" aria-labelledby="generator-title">
+    <header class="help-header">
+      <h2 id="generator-title">Generate test data</h2>
+      <form method="dialog"><button type="submit" class="tool" aria-label="Close generator" data-icon="close"></button></form>
+    </header>
+    <form id="generator-form" class="tool-dialog-content">
+      <div class="tool-fields">
+        <label>Destination range<input id="generator-range" required spellcheck="false" autocomplete="off" placeholder="A1:C10" maxlength="16" autofocus></label>
+        <label>Data type
+          <select id="generator-type">
+            <option value="integers">Whole numbers</option>
+            <option value="uniform">Uniform decimals</option>
+            <option value="normal">Normal distribution</option>
+            <option value="categories">Categories</option>
+          </select>
+        </label>
+        <label id="generator-first-label"><span>Minimum</span><input id="generator-first" type="number" value="1" step="any" required></label>
+        <label id="generator-second-label"><span>Maximum</span><input id="generator-second" type="number" value="100" step="any" required></label>
+      </div>
+      <label id="generator-categories-label" hidden>Categories, separated by commas<input id="generator-categories" value="A, B, C" autocomplete="off"></label>
+      <label class="checkbox-control"><input id="generator-overwrite" type="checkbox">Replace existing values in this range</label>
+      <p id="generator-error" class="tool-error" role="alert"></p>
+      <div class="dialog-actions"><button class="primary-button" type="submit">Generate data</button></div>
+    </form>
+  </dialog>
+  <dialog id="save-as-dialog" class="help-dialog tool-dialog" aria-labelledby="save-as-title">
+    <header class="help-header">
+      <h2 id="save-as-title">Save as</h2>
+      <form method="dialog"><button type="submit" class="tool" aria-label="Close Save As" data-icon="close"></button></form>
+    </header>
+    <form id="save-as-form" class="tool-dialog-content">
+      <label>Workbook name<input id="save-as-name" required maxlength="70" autocomplete="off" autofocus></label>
+      <p class="analysis-guide">Downloads a Gridline file with all sheets, formulas, and formatting.</p>
+      <div class="dialog-actions"><button class="primary-button" type="submit">Download workbook</button></div>
+    </form>
+  </dialog>
+  <input id="workbook-file" type="file" accept=".json,application/json" hidden>
+  <div id="app-notice" class="app-notice" role="status"></div>
+  <section id="print-sheet" class="print-sheet" aria-label="Printable worksheet"></section>
 </body>
 </html>
