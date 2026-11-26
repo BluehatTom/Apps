@@ -39,6 +39,7 @@
           <div class="format-control">
             <select id="number-format" aria-label="Number format" title="Number format">
               <option value="">Automatic</option>
+              <option value="mixed" disabled>Mixed</option>
               <option value="number">Number</option>
               <option value="currency">Currency</option>
               <option value="percent">Percent</option>
@@ -46,14 +47,15 @@
             <span data-icon="chevron"></span>
           </div>
         </div>
+        <button id="toggle-statistics" class="statistics-toggle" type="button" aria-expanded="false" aria-controls="statistics-panel"><span data-icon="statistics"></span>Statistics</button>
       </div>
       <form class="formula-bar" id="formula-form">
-        <label class="address-field"><input id="address" aria-label="Cell address" spellcheck="false" autocomplete="off" maxlength="5"></label>
+        <label class="address-field"><input id="address" aria-label="Cell or range address" title="Enter a cell or range, such as A1:B5" spellcheck="false" autocomplete="off" maxlength="16"></label>
         <span class="formula-icon" aria-hidden="true">ƒx</span>
         <input id="formula" aria-label="Cell value or formula" placeholder="Enter a value or formula" spellcheck="false" autocomplete="off">
       </form>
       <div id="grid-scroll" class="grid-scroll">
-        <table id="grid" role="grid" aria-label="Worksheet grid" tabindex="0"></table>
+        <table id="grid" role="grid" aria-label="Worksheet grid" aria-multiselectable="true" tabindex="0"></table>
       </div>
       <footer class="sheet-bar">
         <button id="add-sheet" class="tool add-sheet" data-icon="plus" aria-label="Add sheet" title="Add sheet"></button>
@@ -61,6 +63,50 @@
         <div id="selection-status" class="selection-status"></div>
       </footer>
     </section>
+    <aside id="statistics-panel" class="statistics-panel" aria-labelledby="statistics-title" hidden>
+      <header class="statistics-header">
+        <div><h2 id="statistics-title">Statistics</h2><p id="statistics-sheet"></p></div>
+        <button id="close-statistics" class="tool" type="button" aria-label="Close statistics" title="Close statistics" data-icon="close"></button>
+      </header>
+      <div class="statistics-content">
+        <form id="statistics-form">
+          <label for="analysis-type">Analysis</label>
+          <div class="analysis-select">
+            <select id="analysis-type">
+              <option value="describe">Descriptive statistics</option>
+              <option value="one-sample">One-sample t-test</option>
+              <option value="welch">Two-sample t-test (Welch)</option>
+              <option value="paired">Paired t-test</option>
+              <option value="pearson">Pearson correlation</option>
+              <option value="anova">One-way ANOVA</option>
+              <option value="chi-square">Chi-square test of independence</option>
+            </select>
+            <span data-icon="chevron"></span>
+          </div>
+          <p id="analysis-guide" class="analysis-guide"></p>
+          <div class="analysis-field">
+            <label id="range-a-label" for="stats-range-a">Data range</label>
+            <div class="analysis-range">
+              <input id="stats-range-a" placeholder="e.g. A2:A20" autocomplete="off" spellcheck="false">
+              <button id="use-range-a" type="button" aria-label="Use selection for the first range">Use selection</button>
+            </div>
+          </div>
+          <div id="range-b-field" class="analysis-field" hidden>
+            <label for="stats-range-b">Range B</label>
+            <div class="analysis-range">
+              <input id="stats-range-b" placeholder="e.g. B2:B20" autocomplete="off" spellcheck="false">
+              <button id="use-range-b" type="button" aria-label="Use selection for Range B">Use selection</button>
+            </div>
+          </div>
+          <div id="target-mean-field" class="analysis-field" hidden>
+            <label for="target-mean">Hypothesized mean</label>
+            <input id="target-mean" type="number" step="any" value="0">
+          </div>
+          <button class="run-analysis" type="submit">Run analysis</button>
+        </form>
+        <div id="analysis-result" class="analysis-result" aria-live="polite"></div>
+      </div>
+    </aside>
   </main>
   <dialog id="help-dialog" class="help-dialog" aria-labelledby="help-title">
     <header class="help-header">
@@ -90,7 +136,8 @@
         <h3 id="help-sheets">Working with sheets</h3>
         <ul>
           <li><strong>Edit and navigate.</strong> Select a cell and type to replace it. Double-click or press <kbd>F2</kbd> to edit its current value. Use the arrow keys to move or enter a cell address to jump there.</li>
-          <li><strong>Copy and paste.</strong> Copy a cell or paste a block of cells from another spreadsheet.</li>
+          <li><strong>Select a range.</strong> Drag across cells, hold <kbd>Shift</kbd> while clicking or using the arrow keys, or enter an address like <code>A1:B5</code>. Copy, clear, or format the whole selection at once.</li>
+          <li><strong>Analyze data.</strong> Open <strong>Statistics</strong>, choose an analysis, then type a range or use your selection.</li>
           <li><strong>Format and undo.</strong> Use the toolbar for bold, italic, number, currency, and percent formats. Use Undo or Redo to step through changes.</li>
           <li><strong>Manage sheets.</strong> Click <strong>+</strong> to add a sheet. Double-click a tab to rename it.</li>
           <li><strong>Save and export.</strong> Changes save in this browser. <strong>Export CSV</strong> downloads values from the active sheet.</li>

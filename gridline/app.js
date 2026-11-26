@@ -1,5 +1,7 @@
 import { ROWS, COLS, address, coordinates, calculate } from './formulas.mjs';
 import { STORAGE_KEY, initialWorkbook } from './workbook.mjs';
+import { bounds, decodeBlock, encodeBlock, parseRange, rangeAddress, rangeRows } from './ranges.mjs';
+import { setupStatistics } from './stats-panel.mjs';
 
 const icons = {
   grid: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>',
@@ -12,6 +14,7 @@ const icons = {
   plus: '<path d="M12 5v14M5 12h14"/>',
   help: '<circle cx="12" cy="12" r="9"/><path d="M9.3 9a2.7 2.7 0 1 1 4.2 2.3c-1 .7-1.5 1.2-1.5 2.3m0 2.7h.01"/>',
   close: '<path d="m6 6 12 12M18 6 6 18"/>',
+  statistics: '<path d="M4 4v16h16M8 15v-3m5 3V8m5 7V5"/>',
 };
 for (const element of document.querySelectorAll('[data-icon]')) {
   element.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[element.dataset.icon]}</svg>`;
@@ -33,8 +36,10 @@ const rowHeaders = [];
 const columnHeaders = [];
 const sheetSelections = new WeakMap();
 let selected = [0, 0];
+let rangeEnd = selected;
 let editor = null;
 let book = loadWorkbook();
+const statistics = setupStatistics(currentSheet, () => rangeAddress(selected, rangeEnd));
 
 function loadWorkbook() {
   try {
@@ -71,7 +76,7 @@ function currentKey() {
 }
 
 function snapshot() {
-  return { book: structuredClone(book), selected: [...selected] };
+  return { book: structuredClone(book), selected, rangeEnd };
 }
 
 function change(update, refreshTabs = false) {
@@ -90,6 +95,7 @@ function restore(from, to) {
   const previous = from.pop();
   book = previous.book;
   selected = previous.selected;
+  rangeEnd = previous.rangeEnd;
   nameInput.value = book.name;
   save();
   renderTabs();
@@ -174,37 +180,55 @@ function refreshGrid() {
     }
   }
   syncSelection();
+  statistics.invalidate();
 }
 
-let marked;
+let marked = [];
+let markedHeaders = [];
 function syncSelection() {
-  if (marked) {
-    cellNodes[marked[0]][marked[1]].classList.remove('selected');
-    cellNodes[marked[0]][marked[1]].removeAttribute('aria-selected');
-    rowHeaders[marked[0]].classList.remove('header-active');
-    columnHeaders[marked[1]].classList.remove('header-active');
+  for (const cell of marked) {
+    cell.classList.remove('selected', 'range-cell', 'range-top', 'range-right', 'range-bottom', 'range-left');
+    cell.removeAttribute('aria-selected');
   }
-  const [row, col] = selected;
-  const node = cellNodes[row][col];
-  node.classList.add('selected');
-  node.setAttribute('aria-selected', 'true');
-  rowHeaders[row].classList.add('header-active');
-  columnHeaders[col].classList.add('header-active');
-  grid.setAttribute('aria-activedescendant', node.id);
-  marked = [...selected];
+  for (const header of markedHeaders) header.classList.remove('header-active');
+  marked = [];
+  const [top, left, bottom, right] = bounds(selected, rangeEnd);
+  const count = (bottom - top + 1) * (right - left + 1);
+  for (let row = top; row <= bottom; row++) {
+    for (let col = left; col <= right; col++) {
+      const node = cellNodes[row][col];
+      node.setAttribute('aria-selected', 'true');
+      if (count > 1) {
+        node.classList.add('range-cell');
+        node.classList.toggle('range-top', row === top);
+        node.classList.toggle('range-right', col === right);
+        node.classList.toggle('range-bottom', row === bottom);
+        node.classList.toggle('range-left', col === left);
+      }
+      marked.push(node);
+    }
+  }
+  markedHeaders = [...rowHeaders.slice(top, bottom + 1), ...columnHeaders.slice(left, right + 1)];
+  for (const header of markedHeaders) header.classList.add('header-active');
+  const anchor = cellNodes[selected[0]][selected[1]];
+  anchor.classList.add('selected');
+  grid.setAttribute('aria-activedescendant', anchor.id);
   const key = currentKey();
-  const cell = currentSheet().cells[key];
-  addressInput.value = key;
-  formula.value = cell?.value ?? '';
-  formatInput.value = cell?.format ?? '';
-  for (const style of ['bold', 'italic']) byId(style).setAttribute('aria-pressed', Boolean(cell?.[style]));
-  for (const format of ['currency', 'percent']) byId(format).setAttribute('aria-pressed', cell?.format === format);
+  const { cells } = currentSheet();
+  const entries = marked.map(node => cells[node.id.slice(5)]);
+  addressInput.value = rangeAddress(selected, rangeEnd);
+  formula.value = cells[key]?.value ?? '';
+  const firstFormat = entries[0]?.format ?? '';
+  formatInput.value = entries.every(cell => (cell?.format ?? '') === firstFormat) ? firstFormat : 'mixed';
+  for (const style of ['bold', 'italic']) byId(style).setAttribute('aria-pressed', entries.every(cell => cell?.[style]));
+  for (const format of ['currency', 'percent']) byId(format).setAttribute('aria-pressed', entries.every(cell => cell?.format === format));
   byId('undo').disabled = undo.length === 0;
   byId('redo').disabled = redo.length === 0;
+  byId('selection-status').textContent = count > 1 ? `${count} cells selected` : `${ROWS} rows · ${COLS} columns`;
 }
 
 function revealSelection() {
-  const node = cellNodes[selected[0]][selected[1]].getBoundingClientRect();
+  const node = cellNodes[rangeEnd[0]][rangeEnd[1]].getBoundingClientRect();
   const visible = scroller.getBoundingClientRect();
   const top = visible.top + grid.tHead.offsetHeight;
   const left = visible.left + rowHeaders[0].offsetWidth;
@@ -216,15 +240,17 @@ function revealSelection() {
   else if (node.right > right) scroller.scrollLeft += node.right - right;
 }
 
-function select(row, col, reveal = true) {
-  selected = [Math.max(0, Math.min(row, ROWS - 1)), Math.max(0, Math.min(col, COLS - 1))];
+function select(row, col, reveal = true, extend = false) {
+  grid.focus({ preventScroll: true });
+  rangeEnd = [Math.max(0, Math.min(row, ROWS - 1)), Math.max(0, Math.min(col, COLS - 1))];
+  if (!extend) selected = rangeEnd;
   syncSelection();
   if (reveal) revealSelection();
-  grid.focus({ preventScroll: true });
 }
 
-function move(row, col) {
-  select(selected[0] + row, selected[1] + col);
+function move(row, col, extend = false) {
+  const origin = extend ? rangeEnd : selected;
+  select(origin[0] + row, origin[1] + col, true, extend);
 }
 
 function put(cells, key, properties) {
@@ -240,20 +266,27 @@ function setValue(key, value) {
 }
 
 function setFormat(format) {
-  const key = currentKey();
+  updateRange('format', format);
+}
+
+function updateRange(property, value) {
   const { cells } = currentSheet();
-  if (format === (cells[key]?.format ?? '')) return;
-  change(() => put(cells, key, { format }));
+  const keys = rangeRows(selected, rangeEnd, key => key).flat();
+  const changed = keys.filter(key => (cells[key]?.[property] ?? '') !== value);
+  if (changed.length) change(() => {
+    for (const key of changed) put(cells, key, { [property]: value });
+  });
 }
 
 function toggleStyle(style) {
-  const key = currentKey();
-  const { cells } = currentSheet();
-  change(() => put(cells, key, { [style]: !cells[key]?.[style] }));
+  updateRange(style, byId(style).getAttribute('aria-pressed') !== 'true');
 }
 
 function startEditing(replace) {
   if (editor) return;
+  rangeEnd = selected;
+  syncSelection();
+  revealSelection();
   const [row, col] = selected;
   const node = cellNodes[row][col];
   const key = currentKey();
@@ -295,9 +328,9 @@ function startEditing(replace) {
 
 function switchSheet(index) {
   if (book.active === index) return;
-  sheetSelections.set(currentSheet(), selected);
+  sheetSelections.set(currentSheet(), [selected, rangeEnd]);
   book.active = index;
-  selected = sheetSelections.get(currentSheet()) ?? [0, 0];
+  [selected, rangeEnd] = sheetSelections.get(currentSheet()) ?? [[0, 0], [0, 0]];
   scroller.scrollTo(0, 0);
   save();
   renderTabs();
@@ -363,10 +396,39 @@ function renderTabs() {
   });
 }
 
+let selectionPointer = null;
+let dragged = false;
+grid.addEventListener('pointerdown', event => {
+  dragged = false;
+  if (event.button !== 0 || event.pointerType !== 'mouse' || event.target === editor) return;
+  const node = event.target.closest('[data-row]');
+  if (!node) return;
+  selectionPointer = event.pointerId;
+  select(Number(node.dataset.row), Number(node.dataset.col), false, event.shiftKey);
+});
+grid.addEventListener('pointermove', event => {
+  if (event.pointerId !== selectionPointer || !(event.buttons & 1)) return;
+  const node = event.target.closest('[data-row]');
+  if (!node) return;
+  const row = Number(node.dataset.row);
+  const col = Number(node.dataset.col);
+  if (row === rangeEnd[0] && col === rangeEnd[1]) return;
+  dragged = true;
+  select(row, col, false, true);
+});
+for (const type of ['pointerup', 'pointercancel']) {
+  document.addEventListener(type, event => {
+    if (event.pointerId === selectionPointer) selectionPointer = null;
+  });
+}
 grid.addEventListener('click', event => {
+  if (dragged) {
+    dragged = false;
+    return;
+  }
   if (event.target === editor) return;
   const node = event.target.closest('[data-row]');
-  if (node) select(Number(node.dataset.row), Number(node.dataset.col), false);
+  if (node) select(Number(node.dataset.row), Number(node.dataset.col), false, event.shiftKey);
 });
 grid.addEventListener('dblclick', event => {
   if (event.target.closest('[data-row]') && event.target !== editor) startEditing();
@@ -395,13 +457,15 @@ grid.addEventListener('keydown', event => {
     const [row, col] = steps[event.key];
     if (event.key === 'Tab' && (selected[1] + col < 0 || selected[1] + col >= COLS)) return;
     event.preventDefault();
-    move(row, col);
+    move(row, col, event.shiftKey && event.key.startsWith('Arrow'));
+  } else if (event.key === 'Escape') {
+    select(...selected);
   } else if (event.key === 'F2') {
     event.preventDefault();
     startEditing();
   } else if (event.key === 'Delete' || event.key === 'Backspace') {
     event.preventDefault();
-    setValue(currentKey(), '');
+    updateRange('value', '');
   } else if (event.key.length === 1 && !event.altKey) {
     event.preventDefault();
     startEditing(event.key);
@@ -410,8 +474,9 @@ grid.addEventListener('keydown', event => {
 
 grid.addEventListener('copy', event => {
   if (event.target !== grid) return;
-  const value = currentSheet().cells[currentKey()]?.value ?? '';
-  event.clipboardData.setData('text/plain', value);
+  const { cells } = currentSheet();
+  const rows = rangeRows(selected, rangeEnd, key => cells[key]?.value ?? '');
+  event.clipboardData.setData('text/plain', encodeBlock(rows));
   event.preventDefault();
 });
 grid.addEventListener('paste', event => {
@@ -419,23 +484,30 @@ grid.addEventListener('paste', event => {
   const text = event.clipboardData.getData('text/plain');
   if (!text) return;
   event.preventDefault();
-  const [startRow, startCol] = selected;
-  const rows = text.replace(/\r\n?/g, '\n').replace(/\n$/, '').split('\n');
+  const [startRow, startCol] = bounds(selected, rangeEnd);
+  const rows = decodeBlock(text).slice(0, ROWS - startRow).map(row => row.slice(0, COLS - startCol));
   const { cells } = currentSheet();
   change(() => {
-    rows.slice(0, ROWS - startRow).forEach((row, offset) => {
-      row.split('\t').slice(0, COLS - startCol).forEach((value, col) => {
+    rows.forEach((row, offset) => {
+      row.forEach((value, col) => {
         put(cells, address(startRow + offset, startCol + col), { value });
       });
     });
+    selected = [startRow, startCol];
+    rangeEnd = [startRow + rows.length - 1, startCol + Math.max(...rows.map(row => row.length)) - 1];
   });
 });
 
 byId('formula-form').addEventListener('submit', event => {
   event.preventDefault();
   if (document.activeElement === addressInput) {
-    const target = coordinates(addressInput.value.trim());
-    if (target) select(...target);
+    const target = parseRange(addressInput.value);
+    if (target) {
+      grid.focus({ preventScroll: true });
+      [selected, rangeEnd] = target;
+      syncSelection();
+      revealSelection();
+    }
     else addressInput.select();
     return;
   }
@@ -448,7 +520,7 @@ formula.addEventListener('keydown', event => {
   formula.value = currentSheet().cells[currentKey()]?.value ?? '';
   grid.focus({ preventScroll: true });
 });
-addressInput.addEventListener('blur', () => { addressInput.value = currentKey(); });
+addressInput.addEventListener('blur', () => { addressInput.value = rangeAddress(selected, rangeEnd); });
 nameInput.addEventListener('blur', () => {
   const name = nameInput.value.trim() || book.name;
   if (name !== book.name) change(() => { book.name = name; });
@@ -467,7 +539,7 @@ for (const style of ['bold', 'italic']) {
 }
 for (const format of ['currency', 'percent']) {
   byId(format).addEventListener('click', () => {
-    setFormat(currentSheet().cells[currentKey()]?.format === format ? '' : format);
+    setFormat(byId(format).getAttribute('aria-pressed') === 'true' ? '' : format);
     grid.focus({ preventScroll: true });
   });
 }
@@ -477,11 +549,12 @@ byId('add-sheet').addEventListener('click', () => {
   let number = book.sheets.length + 1;
   while (usedNames.has(`Sheet ${number}`)) number++;
   const index = book.sheets.length;
-  sheetSelections.set(currentSheet(), selected);
+  sheetSelections.set(currentSheet(), [selected, rangeEnd]);
   change(() => {
     book.sheets.push({ name: `Sheet ${number}`, cells: {} });
     book.active = index;
     selected = [0, 0];
+    rangeEnd = selected;
   }, true);
   scroller.scrollTo(0, 0);
   tabs.children[index].scrollIntoView({ block: 'nearest', inline: 'nearest' });
@@ -518,7 +591,6 @@ byId('export').addEventListener('click', () => {
 });
 
 nameInput.value = book.name;
-byId('selection-status').textContent = `${ROWS} rows · ${COLS} columns`;
 makeGrid();
 renderTabs();
 refreshGrid();

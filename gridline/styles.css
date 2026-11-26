@@ -195,3 +195,78 @@ svg { display: block; width: 17px; height: 17px; }
   .formula-list { grid-template-columns: 1fr; gap: 3px; }
   .formula-list dd + dt { margin-top: 5px; }
 }
+
+.workspace { gap: 14px; }
+.spreadsheet { flex: 1 1 0; }
+.address-field { width: 100px; }
+#grid td.range-cell {
+  --edge-top: 0px; --edge-right: 0px; --edge-bottom: 0px; --edge-left: 0px;
+}
+#grid td.range-top { --edge-top: 2px; }
+#grid td.range-right { --edge-right: -2px; }
+#grid td.range-bottom { --edge-bottom: -2px; }
+#grid td.range-left { --edge-left: 2px; }
+#grid td.range-cell::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; background: #5b48e619;
+  box-shadow: inset var(--edge-left) 0 var(--accent), inset var(--edge-right) 0 var(--accent),
+    inset 0 var(--edge-top) var(--accent), inset 0 var(--edge-bottom) var(--accent);
+}
+.statistics-toggle {
+  display: inline-flex; align-items: center; gap: 7px; flex: none; margin-left: auto;
+  min-height: 32px; padding: 0 9px; border: 1px solid var(--line); border-radius: 6px;
+  background: white; color: var(--accent-dark); font-size: .875rem; font-weight: 650;
+}
+.statistics-toggle:hover, .statistics-toggle[aria-expanded="true"] { background: var(--accent-soft); }
+.statistics-panel {
+  display: flex; flex-direction: column; width: clamp(290px, 30vw, 380px); flex: none; min-height: 0;
+  background: #fff; border: 1px solid #d7dceb; border-radius: 11px; overflow: hidden;
+  box-shadow: 0 2px 6px #17214c08;
+}
+.statistics-panel[hidden] { display: none; }
+.statistics-header {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex: none;
+  padding: 13px 15px; border-bottom: 1px solid var(--line); background: #fafaff;
+}
+.statistics-header h2 { margin: 0; font-size: 1.125rem; }
+.statistics-header p { overflow-wrap: anywhere; margin: 3px 0 0; color: var(--muted); font-size: .875rem; }
+.statistics-content { padding: 15px; overflow: auto; }
+.statistics-content label { display: block; margin-bottom: 4px; font-size: .875rem; font-weight: 650; }
+.statistics-content select, .statistics-content input, .analysis-range button {
+  min-height: 38px; padding: 6px 9px; min-width: 0; border: 1px solid #cdd2e6; border-radius: 6px;
+  background-color: white; font-size: .875rem;
+}
+.statistics-content select, .statistics-content input { width: 100%; }
+.analysis-select { position: relative; }
+.analysis-select select { appearance: none; padding-right: 28px; }
+.analysis-select span { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+.analysis-guide { margin: 8px 0 12px; color: var(--muted); font-size: .875rem; line-height: 1.45; }
+.analysis-field { margin-top: 12px; }
+.analysis-range { display: flex; gap: 6px; }
+.analysis-range button { flex: none; color: var(--accent-dark); font-weight: 650; }
+.analysis-range button:hover { background: var(--accent-soft); }
+.run-analysis {
+  width: 100%; min-height: 38px; margin-top: 14px; padding: 6px 10px; border: 0;
+  border-radius: 6px; background: var(--accent); color: white; font-weight: 700; font-size: .875rem;
+}
+.run-analysis:hover { background: var(--accent-dark); }
+.analysis-result:not(:empty) { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.analysis-result h3 { margin: 0 0 7px; font-size: 1rem; }
+.analysis-values {
+  display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; margin: 0; padding: 10px;
+  border: 1px solid var(--line); border-radius: 7px; background: #fafaff; font-size: .875rem;
+}
+.analysis-values dd { margin: 0; text-align: right; font-weight: 650; font-variant-numeric: tabular-nums; }
+.analysis-error { color: #a82d47; margin: 0; font-size: .875rem; }
+@media (max-width: 720px) {
+  .workspace { flex-direction: column; gap: 7px; }
+  .statistics-panel { width: 100%; max-height: 51%; }
+}
+@media (max-width: 450px) {
+  .toolbar { gap: 6px; }
+  .tool-group { padding: 0 3px; gap: 1px; }
+  .toolbar .tool { width: 25px; }
+  .format-control { margin-left: 0; }
+  .format-control select { padding-left: 3px; max-width: 103px; }
+  .statistics-toggle { gap: 4px; padding: 0 5px; }
+  .statistics-toggle svg { width: 14px; }
+}
