@@ -45,12 +45,14 @@ svg { display: block; width: 17px; height: 17px; }
 .save-state { margin-left: auto; display: flex; align-items: center; gap: 7px; color: var(--muted); white-space: nowrap; font-size: 13px; }
 .save-state svg { width: 16px; height: 16px; color: #197755; }
 .save-state[data-error] svg { display: none; }
-.export-button {
+.header-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+.header-button {
   display: flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap;
   min-height: 37px; border: 1px solid #dce0ef; border-radius: 7px; background: white;
   color: var(--accent-dark); padding: 0 12px; font-weight: 650; font-size: 14px;
 }
-.export-button:hover { background: var(--accent-soft); border-color: #cdc4fc; }
+.header-button:hover { background: var(--accent-soft); border-color: #cdc4fc; }
+.help-button { color: #3c4560; }
 .workspace { flex: 1; min-height: 0; padding: 19px 24px 21px; display: flex; }
 .spreadsheet {
   width: 100%; min-width: 0; display: flex; flex-direction: column; overflow: hidden;
@@ -145,17 +147,51 @@ svg { display: block; width: 17px; height: 17px; }
 }
 .tab-editor { width: 125px; margin: 5px; border: 1px solid var(--accent); padding: 0 5px; border-radius: 4px; }
 .selection-status { margin-left: auto; padding: 0 15px; align-content: center; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.help-dialog {
+  width: min(590px, calc(100% - 24px)); max-height: calc(100% - 28px);
+  padding: 0; border: 1px solid var(--line); border-radius: 12px;
+  color: inherit; background: white; box-shadow: 0 14px 54px #17214c36;
+}
+.help-dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
+.help-dialog::backdrop { background: #24234266; }
+.help-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: none;
+  padding: 13px 20px; border-bottom: 1px solid var(--line); background: #fafaff;
+}
+.help-header h2 { margin: 0; font-size: 1.2rem; }
+.help-content { overflow: auto; padding: 18px 20px 20px; line-height: 1.45; }
+.help-content section + section { margin-top: 20px; }
+.help-content h3 { margin: 0 0 7px; font-size: 1rem; }
+.help-content p { margin: 0 0 12px; }
+.help-content ul { margin: 0; padding-left: 20px; }
+.help-content li + li { margin-top: 7px; }
+.help-content code, .help-content kbd {
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: .875rem; color: var(--accent-dark); background: #f4f2ff;
+  border-radius: 4px; padding: 2px 4px; white-space: nowrap;
+}
+.formula-list {
+  display: grid; grid-template-columns: max-content 1fr; gap: 7px 14px;
+  margin: 0; padding: 11px; background: #fafaff; border: 1px solid var(--line); border-radius: 7px;
+}
+.formula-list dd { margin: 0; }
 @media (max-width: 620px) {
   .app-header { padding: 0 12px; gap: 9px; min-height: 61px; }
   .brand { font-size: 16px; gap: 6px; }
   .brand-icon { width: 29px; height: 29px; }
   .document-name input { font-size: 14px; width: min(35vw, 175px); }
   .rename-icon, .save-state:not([data-error]) > span:last-child { display: none; }
-  .export-button { width: 35px; min-height: 35px; padding: 0; }
-  .export-button span:last-child { display: none; }
+  .header-actions { gap: 5px; }
+  .header-button { width: 35px; min-height: 35px; padding: 0; }
+  .header-button span:last-child { display: none; }
   .workspace { padding: 9px 7px 8px; }
   .toolbar { padding: 0 8px; }
   .tool-group { padding: 0 6px; }
   :root { --first-col: 160px; --col-width: 103px; --row-label: 34px; }
   #grid td.style-title .cell-value { font-size: 18px; }
+}
+@media (max-width: 390px) {
+  .document-name input { width: min(30vw, 175px); }
+  .formula-list { grid-template-columns: 1fr; gap: 3px; }
+  .formula-list dd + dt { margin-top: 5px; }
 }

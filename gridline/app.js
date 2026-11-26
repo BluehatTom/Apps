@@ -10,6 +10,8 @@ const icons = {
   redo: '<path d="M15 8h5m0 0-4-4m4 4H10a5 5 0 0 0 0 10h3"/>',
   chevron: '<path d="m7 10 5 5 5-5"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
+  help: '<circle cx="12" cy="12" r="9"/><path d="M9.3 9a2.7 2.7 0 1 1 4.2 2.3c-1 .7-1.5 1.2-1.5 2.3m0 2.7h.01"/>',
+  close: '<path d="m6 6 12 12M18 6 6 18"/>',
 };
 for (const element of document.querySelectorAll('[data-icon]')) {
   element.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[element.dataset.icon]}</svg>`;
@@ -457,6 +459,7 @@ nameInput.addEventListener('keydown', event => {
   if (event.key === 'Escape' || event.key === 'Enter') grid.focus({ preventScroll: true });
 });
 
+byId('help').addEventListener('click', () => byId('help-dialog').showModal());
 byId('undo').addEventListener('click', () => { restore(undo, redo); grid.focus({ preventScroll: true }); });
 byId('redo').addEventListener('click', () => { restore(redo, undo); grid.focus({ preventScroll: true }); });
 for (const style of ['bold', 'italic']) {

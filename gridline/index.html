@@ -17,7 +17,10 @@
       <span class="rename-icon" data-icon="pencil"></span>
     </label>
     <span id="save-state" class="save-state" role="status"><span data-icon="check"></span><span>Saved locally</span></span>
-    <button id="export" class="export-button" aria-label="Export CSV"><span data-icon="download"></span><span>Export CSV</span></button>
+    <div class="header-actions">
+      <button id="help" class="header-button help-button" aria-label="Help" aria-haspopup="dialog" aria-controls="help-dialog"><span data-icon="help"></span><span>Help</span></button>
+      <button id="export" class="header-button export-button" aria-label="Export CSV"><span data-icon="download"></span><span>Export CSV</span></button>
+    </div>
   </header>
   <main class="workspace">
     <section class="spreadsheet" aria-label="Spreadsheet">
@@ -59,5 +62,41 @@
       </footer>
     </section>
   </main>
+  <dialog id="help-dialog" class="help-dialog" aria-labelledby="help-title">
+    <header class="help-header">
+      <h2 id="help-title">Gridline help</h2>
+      <form method="dialog">
+        <button class="tool" type="submit" aria-label="Close help" title="Close help" data-icon="close" autofocus></button>
+      </form>
+    </header>
+    <div class="help-content">
+      <section aria-labelledby="help-formulas">
+        <h3 id="help-formulas">Formulas</h3>
+        <p>Start with <code>=</code> in a cell or the formula bar. Use cell references like <code>A1</code>, ranges like <code>A1:A5</code>, and arithmetic like <code>=(B2-C2)*10%</code>.</p>
+        <dl class="formula-list">
+          <dt><code>=SUM(A1:A5)</code></dt>
+          <dd>Adds the numbers in the range.</dd>
+          <dt><code>=AVERAGE(A1:A5)</code></dt>
+          <dd>Finds the mean of the numbers.</dd>
+          <dt><code>=MIN(A1:A5)</code></dt>
+          <dd>Finds the smallest number.</dd>
+          <dt><code>=MAX(A1:A5)</code></dt>
+          <dd>Finds the largest number.</dd>
+          <dt><code>=COUNT(A1:A5)</code></dt>
+          <dd>Counts cells that contain numbers.</dd>
+        </dl>
+      </section>
+      <section aria-labelledby="help-sheets">
+        <h3 id="help-sheets">Working with sheets</h3>
+        <ul>
+          <li><strong>Edit and navigate.</strong> Select a cell and type to replace it. Double-click or press <kbd>F2</kbd> to edit its current value. Use the arrow keys to move or enter a cell address to jump there.</li>
+          <li><strong>Copy and paste.</strong> Copy a cell or paste a block of cells from another spreadsheet.</li>
+          <li><strong>Format and undo.</strong> Use the toolbar for bold, italic, number, currency, and percent formats. Use Undo or Redo to step through changes.</li>
+          <li><strong>Manage sheets.</strong> Click <strong>+</strong> to add a sheet. Double-click a tab to rename it.</li>
+          <li><strong>Save and export.</strong> Changes save in this browser. <strong>Export CSV</strong> downloads values from the active sheet.</li>
+        </ul>
+      </section>
+    </div>
+  </dialog>
 </body>
 </html>
